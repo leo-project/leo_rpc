@@ -31,7 +31,7 @@
          call/4, call/5, call/6,
          multicall/4, multicall/5,
          nb_yield/1, nb_yield/2,
-         ping/1, status/0
+         ping/1, status/0, node/0, nodes/0
         ]).
 
 -define(DEF_TIMEOUT, 5000).
@@ -160,11 +160,28 @@ ping(Node) ->
 
 
 %% @doc Retrieve status of active connections
-%%
 -spec(status() ->
              {ok, list(#rpc_info{})} | {error, any()}).
 status() ->
     leo_rpc_client_manager:status().
+
+
+%% @doc Returns the name of the local node. If the node is not alive, nonode@nohost is returned instead.
+-spec(node() ->
+             'nonode@nohost' | atom()).
+node() ->
+    case application:get_env(?MODULE, 'node') of
+        undefined ->
+            'nonode@nohost';
+        {ok, Node} ->
+            Node
+    end.
+
+
+%% @doc Returns a list of all connected nodes in the system, excluding the local node.
+nodes() ->
+    {ok, Nodes} = leo_rpc_client_manager:connected_nodes(),
+    Nodes.
 
 
 %%--------------------------------------------------------------------
@@ -179,7 +196,7 @@ exec(Node, Port, ParamsBin, Timeout) ->
     Node1 = atom_to_list(Node),
     case ets:lookup(?TBL_RPC_CONN_INFO, Node) of
         [] ->
-            leo_rpc_client_sup:start_child('node_0@127.0.0.1', 13075, 0);
+            leo_rpc_client_sup:start_child(Node, Port);
         _ ->
             void
     end,

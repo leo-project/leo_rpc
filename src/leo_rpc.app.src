@@ -30,7 +30,7 @@
                   stdlib
                  ]},
   {mod, { leo_rpc_app, []}},
-  {env, [%% for rpc-server
+  {env, [{node, 'node_0@127.0.0.1'},
          {num_of_acceptors, 32},
          {listen_port,   13075}
         ]}
