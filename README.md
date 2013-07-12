@@ -24,6 +24,15 @@ An original rpc library, interface of which is similar to Erlnag's RPC. Aim to c
 7> leo_rpc:multicall(['node_0@10.0.101.1', 'node_1@10.0.101.2'], 'leo_date', 'clock', []).
 {[1373550225871064, 1373550225871067],[]}
 
+8> leo_rpc:status().
+{ok,[{'node_0@127.0.0.1',"127.0.0.1",13075,0,8}]}
+
+9> leo_rpc:node().
+'node_0@127.0.0.1'
+
+10> leo_rpc:nodes().
+['node_0@10.0.101.1', 'node_1@10.0.101.2']
+
 ```
 
 ## License
