@@ -23,6 +23,7 @@
 
 -author('Yosuke Hara').
 
+-include("leo_rpc.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %%--------------------------------------------------------------------
@@ -86,6 +87,8 @@ suite_(Node) ->
     timer:sleep(1000),
 
     ?assertMatch({ok, [_|_]}, leo_rpc_client_manager:status()),
+
+    ?assertEqual('node_0@127.0.0.1', leo_rpc:node()),
     ok.
 
 -endif.

@@ -30,7 +30,7 @@
 
 %% API
 -export([start_link/1, stop/0]).
--export([inspect/0, inspect/1, status/0]).
+-export([inspect/0, inspect/1, status/0, connected_nodes/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -63,6 +63,10 @@ inspect(Node) ->
 status() ->
     gen_server:call(?MODULE, status).
 
+connected_nodes() ->
+    gen_server:call(?MODULE, connected_nodes).
+
+
 
 %%====================================================================
 %% gen_server callbacks
@@ -87,6 +91,19 @@ handle_call({inspect, Node}, _From, State) ->
 
 handle_call(status, _From, #state{active = Active} = State) ->
     {reply, {ok, Active}, State};
+
+handle_call(connected_nodes, _From, #state{active = Active} = State) ->
+    Me = leo_rpc:node(),
+    ConnectedNodes = lists:foldl(
+                       fun(N, Acc) ->
+                               case erlang:element(1, N) of
+                                   Node when Node /= Me ->
+                                       [Node|Acc];
+                                   _ ->
+                                       Acc
+                               end
+                       end, [], Active),
+    {reply, {ok, lists:sort(ConnectedNodes)}, State};
 
 handle_call(_Request, _From, State) ->
     {reply, unknown_request, State}.

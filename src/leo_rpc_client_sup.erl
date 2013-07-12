@@ -83,9 +83,9 @@ start_child(Node, Port, ReconnectSleep) ->
                     WorkerArgs = [Host, Port, ReconnectSleep],
                     ChildSpec  = {Id, {leo_pod_sup, start_link,
                                        [Id,
-                                        ?DEF_CLIENT_WORKER_POOL_SIZE,
-                                        ?DEF_CLIENT_WORKER_BUF_SIZE,
-                                        leo_rpc_client_worker, WorkerArgs]},
+                                        ?DEF_CLIENT_CONN_POOL_SIZE,
+                                        ?DEF_CLIENT_CONN_BUF_SIZE,
+                                        leo_rpc_client_conn, WorkerArgs]},
                                   permanent, ?SHUTDOWN_WAITING_TIME,
                                   supervisor, [leo_pod_sup]},
 
@@ -98,7 +98,7 @@ start_child(Node, Port, ReconnectSleep) ->
                                               {Node, #rpc_conn{node = Node,
                                                                host = Host,
                                                                port = Port,
-                                                               workers = ?DEF_CLIENT_WORKER_POOL_SIZE,
+                                                               workers = ?DEF_CLIENT_CONN_POOL_SIZE,
                                                                manager_ref = ManagerRef}}),
                             ok;
                         {error, Cause} ->
@@ -122,13 +122,23 @@ init([]) ->
                     {ok, EnvVal} -> EnvVal;
                     _ -> ?DEF_INSPECT_INTERVAL
                 end,
+
     ChildSpec = [
+                 %% rpc client manager
                  {leo_rpc_client_manager,
                   {leo_rpc_client_manager, start_link, [Interval]},
                   permanent,
                   2000,
                   worker,
-                  [leo_rpc_client_manager]}
+                  [leo_rpc_client_manager]},
+                 %% rpc client worker
+                 {?DEF_CLIENT_WORKER_SUP_ID, {leo_pod_sup, start_link,
+                       [?DEF_CLIENT_WORKER_SUP_ID,
+                        ?DEF_CLIENT_WORKER_POOL_SIZE,
+                        ?DEF_CLIENT_WORKER_BUF_SIZE,
+                        leo_rpc_client_worker, []]},
+                  permanent, ?SHUTDOWN_WAITING_TIME,
+                  supervisor, [leo_pod_sup]}
                 ],
     {ok, { {one_for_one, 5, 10}, ChildSpec} }.
 

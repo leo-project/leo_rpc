@@ -31,7 +31,7 @@
          call/4, call/5, call/6,
          multicall/4, multicall/5,
          nb_yield/1, nb_yield/2,
-         ping/1, status/0
+         ping/1, status/0, node/0, nodes/0
         ]).
 
 -define(DEF_TIMEOUT, 5000).
@@ -47,9 +47,18 @@
 -spec(async_call(atom(), atom(), atom(), list(any())) ->
              pid()).
 async_call(Node, Mod, Method, Args) ->
-    spawn(fun() ->
-                  loop_1(Node, Mod, Method, Args)
-          end).
+    case leo_pod:checkout(?DEF_CLIENT_WORKER_SUP_ID) of
+        {ok, WorkerPid} ->
+            Clock = leo_date:clock(),
+            case gen_server:call(WorkerPid, {in, Clock, Node, Mod, Method, Args}) of
+                ok ->
+                    {Clock, WorkerPid};
+                _ ->
+                    undefined
+            end;
+        _ ->
+            undefined
+    end.
 
 
 %% @doc Evaluates apply(Module, Function, Args) on the node Node
@@ -122,25 +131,24 @@ nb_yield(Key) ->
 
 -spec(nb_yield(pid(), pos_integer()) ->
              {value, any()} | timeout | {badrpc, any()}).
-nb_yield(Key, Timeout) when is_pid(Key) ->
-    case erlang:is_process_alive(Key) of
-        false ->
-            {badrpc, invalid_key};
-        true ->
-            erlang:send(Key, {get, self()}),
-            receive
-                {Node, Mod, Method, Args} ->
-                    case call(Node, Mod, Method, Args, Timeout) of
-                        {badrpc, timeout} ->
-                            timeout;
-                        {badrpc, Cause} ->
-                            {badrpc, Cause};
-                        Ret ->
-                            {value, Ret}
-                    end
-            after Timeout ->
-                    timeout
-            end
+nb_yield(Key, Timeout) when is_tuple(Key) ->
+    {Clock, WorkerPid} = Key,
+    case gen_server:call(WorkerPid, {out, Clock}, Timeout) of
+        {ok, {Node, Mod, Method, Args}} ->
+            Ret1 = case call(Node, Mod, Method, Args, Timeout) of
+                       {badrpc, timeout} ->
+                           timeout;
+                       {badrpc, Cause} ->
+                           {badrpc, Cause};
+                       Ret ->
+                           {value, Ret}
+                   end,
+            leo_pod:checkin(?DEF_CLIENT_WORKER_SUP_ID, WorkerPid),
+            Ret1;
+        {error, invalid_key = Cause} ->
+            {badrpc, Cause};
+        _ ->
+            timeout
     end;
 nb_yield(_,_) ->
     {badrpc, invalid_key}.
@@ -160,11 +168,28 @@ ping(Node) ->
 
 
 %% @doc Retrieve status of active connections
-%%
 -spec(status() ->
              {ok, list(#rpc_info{})} | {error, any()}).
 status() ->
     leo_rpc_client_manager:status().
+
+
+%% @doc Returns the name of the local node. If the node is not alive, nonode@nohost is returned instead.
+-spec(node() ->
+             'nonode@nohost' | atom()).
+node() ->
+    case application:get_env(?MODULE, 'node') of
+        undefined ->
+            'nonode@nohost';
+        {ok, Node} ->
+            Node
+    end.
+
+
+%% @doc Returns a list of all connected nodes in the system, excluding the local node.
+nodes() ->
+    {ok, Nodes} = leo_rpc_client_manager:connected_nodes(),
+    Nodes.
 
 
 %%--------------------------------------------------------------------
@@ -179,7 +204,7 @@ exec(Node, Port, ParamsBin, Timeout) ->
     Node1 = atom_to_list(Node),
     case ets:lookup(?TBL_RPC_CONN_INFO, Node) of
         [] ->
-            leo_rpc_client_sup:start_child('node_0@127.0.0.1', 13075, 0);
+            leo_rpc_client_sup:start_child(Node, Port);
         _ ->
             void
     end,
@@ -209,20 +234,6 @@ exec_1(PodName, ParamsBin, Timeout) ->
             {error, []}
     end.
 
-
-%% @doc Receiver-1
-%% @private
-loop_1(Node, Mod, Method, Args) ->
-    loop_1(Node, Mod, Method, Args, ?DEF_TIMEOUT).
-
-loop_1(Node, Mod, Method, Args, Timeout) ->
-    receive
-        {get, Client} ->
-            erlang:send(Client, {Node, Mod, Method,Args})
-    after
-        Timeout ->
-            timeout
-    end.
 
 
 %% @doc Receiver-2

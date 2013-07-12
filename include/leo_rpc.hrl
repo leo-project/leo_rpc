@@ -40,6 +40,10 @@
 -define(DEF_LISTEN_PORT, 13075).
 
 -define(DEF_CLIENT_POOL_NAME_PREFIX, "leo_rpc_client_").
+-define(DEF_CLIENT_CONN_POOL_SIZE, 8).
+-define(DEF_CLIENT_CONN_BUF_SIZE, 16).
+
+-define(DEF_CLIENT_WORKER_SUP_ID, 'leo_rpc_client_worker').
 -define(DEF_CLIENT_WORKER_POOL_SIZE, 8).
 -define(DEF_CLIENT_WORKER_BUF_SIZE, 16).
 
