@@ -94,14 +94,15 @@ handle_call(status, _From, #state{active = Active} = State) ->
 
 handle_call(connected_nodes, _From, #state{active = Active} = State) ->
     Me = leo_rpc:node(),
-    ConnectedNodes = lists:foldl(fun(N, Acc) ->
-                                       case erlang:element(1, N) of
-                                           N when N /= Me ->
-                                               [N|Acc];
-                                           _ ->
-                                               Acc
-                                       end
-                                 end,[], Active),
+    ConnectedNodes = lists:foldl(
+                       fun(N, Acc) ->
+                               case erlang:element(1, N) of
+                                   Node when Node /= Me ->
+                                       [Node|Acc];
+                                   _ ->
+                                       Acc
+                               end
+                       end, [], Active),
     {reply, {ok, lists:sort(ConnectedNodes)}, State};
 
 handle_call(_Request, _From, State) ->
