@@ -130,12 +130,19 @@ binary_to_param(_) ->
 binary_to_param_1(?CRLF, Acc) ->
     {ok, lists:reverse(Acc)};
 binary_to_param_1(<< L:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, Acc) ->
-    << Type:?BLEN_TYPE_LEN/binary,  "\r\n", Rest1/binary>> = Rest,
-    << Param:L/binary, "\r\n", Rest2/binary>> = Rest1,
-
-    case Type of
-        ?BIN_ORG_TYPE_TERM -> binary_to_param_1(Rest2, [binary_to_term(Param)|Acc]);
-        ?BIN_ORG_TYPE_BIN  -> binary_to_param_1(Rest2, [Param|Acc]);
+    case Rest of
+        << Type:?BLEN_TYPE_LEN/binary,  "\r\n", Rest1/binary>> ->
+            case Rest1 of
+                << Param:L/binary, "\r\n", Rest2/binary>> ->
+                    case Type of
+                        ?BIN_ORG_TYPE_TERM -> binary_to_param_1(Rest2, [binary_to_term(Param)|Acc]);
+                        ?BIN_ORG_TYPE_BIN  -> binary_to_param_1(Rest2, [Param|Acc]);
+                        _ ->
+                            {error, invalid_format}
+                    end;
+                _ ->
+                    {error, invalid_format}
+            end;
         _ ->
             {error, invalid_format}
     end;
@@ -230,9 +237,13 @@ binary_to_result(_) ->
 %% @doc Receive requested data
 %% @private
 loop(Socket, Transport) ->
+    ok = ranch_tcp:setopts(Socket, [{packet, line}]),
+
     case Transport:recv(Socket, 0, ?TIMEOUT) of
-        {ok, Data} ->
-            case binary_to_param(Data) of
+        {ok, Data1} ->
+            Data2 = loop_1(Socket, Transport, Data1),
+
+            case binary_to_param(Data2) of
                 {ok, #rpc_info{module = Mod,
                                method = Method,
                                params = Args}} ->
@@ -250,6 +261,16 @@ loop(Socket, Transport) ->
             loop(Socket, Transport);
         _ ->
             ok = Transport:close(Socket)
+    end.
+
+loop_1(Socket, Transport, Acc) ->
+    case Transport:recv(Socket, 0, ?TIMEOUT) of
+        {ok, <<"\r\n">> = Data} ->
+            << Acc/binary, Data/binary >>;
+        {ok, Data} ->
+            loop_1(Socket, Transport, << Acc/binary, Data/binary>>);
+        Error ->
+            Error
     end.
 
 
