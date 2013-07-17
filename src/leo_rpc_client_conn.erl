@@ -38,6 +38,7 @@
 -record(state, {
           id     :: atom(),
           host   :: string(),
+          ip     :: pos_integer(),
           port   :: integer(),
           socket :: reference()|undefined,
           reconnect_sleep :: integer(),
@@ -53,8 +54,8 @@
 %% ===================================================================
 -spec(start_link(list(any())) ->
              {ok, pid()} | {error, term()}).
-start_link([Host, Port, ReconnectSleepInterval]) ->
-    gen_server:start_link(?MODULE, [Host, Port, ReconnectSleepInterval], []).
+start_link([Host, IP, Port, ReconnectSleepInterval]) ->
+    gen_server:start_link(?MODULE, [Host, IP, Port, ReconnectSleepInterval], []).
 
 stop(ServerRef) ->
     gen_server:call(ServerRef, stop).
@@ -63,8 +64,9 @@ stop(ServerRef) ->
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
-init([Host, Port, ReconnectSleepInterval]) ->
+init([Host, IP, Port, ReconnectSleepInterval]) ->
     State = #state{host = Host,
+                   ip = IP,
                    port = Port,
                    reconnect_sleep = ReconnectSleepInterval,
                    queue = []},
@@ -188,7 +190,7 @@ reply(Value, Queue) ->
 %% @doc: Connect to server
 %% @private
 connect(State) ->
-    case gen_tcp:connect(State#state.host, State#state.port, ?SOCKET_OPTS) of
+    case gen_tcp:connect(State#state.ip, State#state.port, ?SOCKET_OPTS) of
         {ok, Socket} ->
             {ok, State#state{socket = Socket}};
         {error, Reason} ->

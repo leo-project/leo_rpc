@@ -80,8 +80,15 @@ handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
 handle_call({inspect, Node}, _From, State) ->
+    Node1 = case is_atom(Node) of
+                true  -> atom_to_list(Node);
+                false -> Node
+            end,
+    [Node2|_] = string:tokens(Node1, "@:"),
+    Node3 = list_to_atom(Node2),
+
     {ok, Active} = inspect_fun(0, false),
-    Ret = case lists:keyfind(Node, 1, Active) of
+    Ret = case lists:keyfind(Node3, 1, Active) of
               {_,_Host,_Port, NumOfActive,_Workers} when NumOfActive > 0 ->
                   active;
               _ ->

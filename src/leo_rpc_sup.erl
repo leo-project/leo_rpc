@@ -72,14 +72,12 @@ init([]) ->
 
     RanchSupSpec = {ranch_sup, {ranch_sup, start_link, []},
                     permanent, 5000, supervisor, [ranch_sup]},
-
     RanchChildSpec = ranch:child_spec(leo_rpc_protocol, NumOfAcceptors,
                                       ranch_tcp, [{port, ListenPort}],
                                       leo_rpc_protocol, []),
 
     ClientSupSpec = {leo_rpc_client_sup, {leo_rpc_client_sup, start_link, []},
                      permanent, 5000, supervisor, [leo_rpc_client_sup]},
-
     ChildSpecs = [RanchSupSpec, RanchChildSpec, ClientSupSpec],
     {ok, { {one_for_one, 5, 10}, ChildSpecs} }.
 

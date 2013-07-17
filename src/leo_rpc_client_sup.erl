@@ -30,7 +30,7 @@
 
 %% API
 -export([start_link/0, stop/0]).
--export([start_child/2, start_child/3]).
+-export([start_child/3, start_child/4]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -66,51 +66,43 @@ stop() ->
     end.
 
 
-start_child(Node, Port) ->
-    start_child(Node, Port, 0).
+start_child(Host, IP, Port) ->
+    start_child(Host, IP, Port, 0).
 
-start_child(Node, Port, ReconnectSleep) ->
-    Node1 = atom_to_list(Node),
+start_child(Host, IP, Port, ReconnectSleep) ->
+    Id = list_to_atom(leo_rpc_client_utils:create_client_worker_id(Host, Port)),
+    case whereis(Id) of
+        undefined ->
+            WorkerArgs = [Host, IP, Port, ReconnectSleep],
+            ChildSpec  = {Id, {leo_pod_sup, start_link,
+                               [Id,
+                                ?DEF_CLIENT_CONN_POOL_SIZE,
+                                ?DEF_CLIENT_CONN_BUF_SIZE,
+                                leo_rpc_client_conn, WorkerArgs]},
+                          permanent, ?SHUTDOWN_WAITING_TIME,
+                          supervisor, [leo_pod_sup]},
 
-    case string:chr(Node1, $@) of
-        0 ->
-            {error, invalid_node};
-        Pos ->
-            Host = string:sub_string(Node1, Pos + 1),
-            Id = list_to_atom(leo_rpc_client_utils:create_client_worker_id(Host, Port)),
-            case whereis(Id) of
-                undefined ->
-                    WorkerArgs = [Host, Port, ReconnectSleep],
-                    ChildSpec  = {Id, {leo_pod_sup, start_link,
-                                       [Id,
-                                        ?DEF_CLIENT_CONN_POOL_SIZE,
-                                        ?DEF_CLIENT_CONN_BUF_SIZE,
-                                        leo_rpc_client_conn, WorkerArgs]},
-                                  permanent, ?SHUTDOWN_WAITING_TIME,
-                                  supervisor, [leo_pod_sup]},
+            case supervisor:start_child(?MODULE, ChildSpec) of
+                {ok, _Pid} ->
+                    [Child|_] = supervisor:which_children(_Pid),
+                    ManagerRef = element(1, Child),
 
-                    case supervisor:start_child(?MODULE, ChildSpec) of
-                        {ok, _Pid} ->
-                            [Child|_] = supervisor:which_children(_Pid),
-                            ManagerRef = element(1, Child),
-
-                            true = ets:insert(?TBL_RPC_CONN_INFO,
-                                              {Node, #rpc_conn{node = Node,
-                                                               host = Host,
-                                                               port = Port,
-                                                               workers = ?DEF_CLIENT_CONN_POOL_SIZE,
-                                                               manager_ref = ManagerRef}}),
-                            ok;
-                        {error, Cause} ->
-                            error_logger:warning_msg(
-                              "~p,~p,~p,~p~n",
-                              [{module, ?MODULE_STRING}, {function, "start_child/3"},
-                               {line, ?LINE}, {body, Cause}]),
-                            {error, Cause}
-                    end;
-                _ ->
-                    ok
-            end
+                    true = ets:insert(?TBL_RPC_CONN_INFO,
+                                      {Host, #rpc_conn{host = Host,
+                                                       ip = IP,
+                                                       port = Port,
+                                                       workers = ?DEF_CLIENT_CONN_POOL_SIZE,
+                                                       manager_ref = ManagerRef}}),
+                    ok;
+                {error, Cause} ->
+                    error_logger:warning_msg(
+                      "~p,~p,~p,~p~n",
+                      [{module, ?MODULE_STRING}, {function, "start_child/3"},
+                       {line, ?LINE}, {body, Cause}]),
+                    {error, Cause}
+            end;
+        _ ->
+            ok
     end.
 
 
@@ -133,10 +125,10 @@ init([]) ->
                   [leo_rpc_client_manager]},
                  %% rpc client worker
                  {?DEF_CLIENT_WORKER_SUP_ID, {leo_pod_sup, start_link,
-                       [?DEF_CLIENT_WORKER_SUP_ID,
-                        ?DEF_CLIENT_WORKER_POOL_SIZE,
-                        ?DEF_CLIENT_WORKER_BUF_SIZE,
-                        leo_rpc_client_worker, []]},
+                                              [?DEF_CLIENT_WORKER_SUP_ID,
+                                               ?DEF_CLIENT_WORKER_POOL_SIZE,
+                                               ?DEF_CLIENT_WORKER_BUF_SIZE,
+                                               leo_rpc_client_worker, []]},
                   permanent, ?SHUTDOWN_WAITING_TIME,
                   supervisor, [leo_pod_sup]}
                 ],
