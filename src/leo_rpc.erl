@@ -73,7 +73,7 @@ call(Node, Mod, Method, Args) ->
 call(Node, Mod, Method, Args, Timeout) ->
     ParamsBin = leo_rpc_protocol:param_to_binary(Mod, Method, Args),
 
-    case exec(Node, ?DEF_LISTEN_PORT, ParamsBin, Timeout) of
+    case exec(Node, ParamsBin, Timeout) of
         {ok, Val} ->
             case leo_rpc_protocol:binary_to_result(Val) of
                 {error, Cause} ->
@@ -197,24 +197,37 @@ nodes() ->
 %%--------------------------------------------------------------------
 %% @doc Execute rpc
 %% @private
--spec(exec(atom(), pos_integer(), binary(), pos_integer()) ->
+-spec(exec(atom(), binary(), pos_integer()) ->
              {ok, any()} | {error, any()}).
-exec(Node, Port, ParamsBin, Timeout) ->
-    %% find the node from worker-procs
+exec(Node, ParamsBin, Timeout) when is_atom(Node) ->
     Node1 = atom_to_list(Node),
-    case ets:lookup(?TBL_RPC_CONN_INFO, Node) of
-        [] ->
-            leo_rpc_client_sup:start_child(Node, Port);
-        _ ->
-            void
-    end,
+    exec(Node1, ParamsBin, Timeout);
 
-    case string:chr(Node1, $@) of
-        0 ->
+exec(Node, ParamsBin, Timeout) ->
+    %% find the node from worker-procs
+    {Node1, IP1, Port1} = case string:tokens(Node, "@:") of
+                              [_Node, IP, Port] ->
+                                  {list_to_atom(_Node), IP, Port};
+                              [_Node, IP] ->
+                                  {list_to_atom(_Node), IP, ?DEF_LISTEN_PORT};
+                              [_Node] ->
+                                  {list_to_atom(_Node), ?DEF_LISTEN_IP, ?DEF_LISTEN_PORT};
+                              _ ->
+                                  {[], 0}
+                          end,
+
+    case Node1 of
+        [] ->
             {error, invalid_node};
-        Pos ->
-            Host = string:sub_string(Node1, Pos + 1),
-            PodName = leo_rpc_client_utils:get_client_worker_id(Host, Port),
+        _ ->
+            case ets:lookup(?TBL_RPC_CONN_INFO, Node1) of
+                [] ->
+                    leo_rpc_client_sup:start_child(Node1, IP1, Port1);
+                _ ->
+                    void
+            end,
+
+            PodName = leo_rpc_client_utils:get_client_worker_id(Node1, Port1),
             exec_1(PodName, ParamsBin, Timeout)
     end.
 

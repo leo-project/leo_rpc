@@ -57,7 +57,7 @@ init(ListenerPid, Socket, Transport, _Opts = []) ->
 %% Format:
 %% << "*",
 %%    $ModMethodBin/binary,    "/r/n",
-%%    $ParamLenBin/binary,     "/r/n",
+%%    $ParamsLenBin:8/integer, $BodyLen:32/integer, "/r/n",
 %%    $Param_1_Bin_Len/binary, "/r/n", "T"|"B", $Param_1_Bin/binary, "/r/n",
 %%    ...
 %%    $Param_N_Bin_Len/binary, "/r/n", "T"|"B", $Param_N_Bin/binary, "/r/n",
@@ -84,10 +84,11 @@ param_to_binary(Mod, Method, Args) ->
                                   ?BIN_ORG_TYPE_TERM/binary,    ?CRLF/binary,
                                   Bin/binary, ?CRLF/binary >>
                        end, <<>>, Args),
-    << "*",
-       ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, ?CRLF/binary,
+    BodyLen = byte_size(Body),
+
+    << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, ?CRLF/binary,
        ModMethodBin/binary, ?CRLF/binary,
-       ParamLen:?BLEN_PARAM_LEN/integer, ?CRLF/binary,
+       ParamLen:?BLEN_PARAM_LEN/integer, BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>.
 
 
@@ -105,10 +106,11 @@ binary_to_param(<< "*",
 
             %% retrieve: param's length
             case Rest2 of
-                << ParamLen:?BLEN_PARAM_LEN/integer, "\r\n", Rest3/binary >> ->
+                << ParamsLen:?BLEN_PARAM_LEN/integer,
+                   _BodyLen:?BLEN_BODY_LEN/integer, "\r\n", Rest3/binary >> ->
                     %% retrieve: params
                     case binary_to_param_1(Rest3, []) of
-                        {ok, Params} when ParamLen == length(Params) ->
+                        {ok, Params} when ParamsLen == length(Params) ->
                             {ok, #rpc_info{module = Mod,
                                            method = Method,
                                            params = Params}};
@@ -241,7 +243,7 @@ loop(Socket, Transport) ->
 
     case Transport:recv(Socket, 0, ?TIMEOUT) of
         {ok, Data1} ->
-            Data2 = loop_1(Socket, Transport, Data1),
+            Data2 = loop_1(Socket, Transport, 1, Data1),
 
             case binary_to_param(Data2) of
                 {ok, #rpc_info{module = Mod,
@@ -263,14 +265,26 @@ loop(Socket, Transport) ->
             ok = Transport:close(Socket)
     end.
 
-loop_1(Socket, Transport, Acc) ->
-    case Transport:recv(Socket, 0, ?TIMEOUT) of
-        {ok, <<"\r\n">> = Data} ->
-            << Acc/binary, Data/binary >>;
-        {ok, Data} ->
-            loop_1(Socket, Transport, << Acc/binary, Data/binary>>);
-        Error ->
-            Error
-    end.
 
+loop_1(Socket, Transport, Line, Acc) ->
+    case Transport:recv(Socket, 0, ?TIMEOUT) of
+        %% Retrieve the 2nd line
+        {ok, Bin1} when Line == 1 ->
+            loop_1(Socket, Transport, Line + 1, << Acc/binary, Bin1/binary>>);
+
+        %% Retrieve the 3nd line
+        {ok, << _ParamsLen:?BLEN_PARAM_LEN,
+                BodyLen:?BLEN_BODY_LEN, "\r\n" >> = Bin1} ->
+
+            %% Retrieve the 4th line
+            ok = ranch_tcp:setopts(Socket, [{packet, raw}]),
+            case Transport:recv(Socket, (BodyLen + 2), ?TIMEOUT) of
+                {ok, Bin2} ->
+                    << Acc/binary, Bin1/binary, Bin2/binary >>;
+                _ ->
+                    Acc
+            end;
+        _ ->
+            Acc
+    end.
 

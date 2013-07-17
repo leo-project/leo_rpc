@@ -31,12 +31,14 @@
 -define(BLEN_TYPE_LEN,        1).
 -define(BLEN_PARAM_LEN,       8).
 -define(BLEN_PARAM_TERM,     32).
+-define(BLEN_BODY_LEN,       32).
 
 
 %% @doc: rpc-server related definitions
 %%
 -define(POOL_NAME, 'leo_tcp_pool').
 -define(DEF_ACCEPTORS,   64).
+-define(DEF_LISTEN_IP,   "127.0.0.1").
 -define(DEF_LISTEN_PORT, 13075).
 
 -define(DEF_CLIENT_POOL_NAME_PREFIX, "leo_rpc_client_").
@@ -57,8 +59,8 @@
 %%
 -define(TBL_RPC_CONN_INFO, 'leo_rpc_conn_info').
 
--record(rpc_conn, { node :: atom(),
-                    host = [] :: string(),
+-record(rpc_conn, { host = [] :: string(),
+                    ip :: string(),
                     port = ?DEF_LISTEN_PORT :: pos_integer(),
                     workers = 0 :: pos_integer(),
                     manager_ref :: atom()

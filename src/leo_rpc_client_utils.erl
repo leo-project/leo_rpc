@@ -49,6 +49,11 @@ get_client_worker_id(Host, Port) ->
 -spec(create_client_worker_id(string(), pos_integer()) ->
              string()).
 create_client_worker_id(Host, Port) ->
+    Host1 = case is_atom(Host) of
+                true  -> atom_to_list(Host);
+                false -> Host
+            end,
+
     lists:append([?DEF_CLIENT_POOL_NAME_PREFIX,
-                  Host, "_at_", integer_to_list(Port)]).
+                  Host1, "_at_", integer_to_list(Port)]).
 
