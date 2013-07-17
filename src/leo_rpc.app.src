@@ -23,7 +23,7 @@
 {application, leo_rpc,
  [
   {description, "leo rpc library"},
-  {vsn, "0.4.1"},
+  {vsn, "0.4.2"},
   {registered, []},
   {applications, [
                   kernel,
