@@ -46,8 +46,8 @@
 -define(DEF_CLIENT_CONN_BUF_SIZE, 16).
 
 -define(DEF_CLIENT_WORKER_SUP_ID, 'leo_rpc_client_worker').
--define(DEF_CLIENT_WORKER_POOL_SIZE, 8).
--define(DEF_CLIENT_WORKER_BUF_SIZE, 16).
+-define(DEF_CLIENT_WORKER_POOL_SIZE, 64).
+-define(DEF_CLIENT_WORKER_BUF_SIZE,  64).
 
 -record(rpc_info, { module :: atom(),
                     method :: atom(),

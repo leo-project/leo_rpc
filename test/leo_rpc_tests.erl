@@ -73,7 +73,7 @@ suite_(Node) ->
 
     RPCKey4 = leo_rpc:async_call(Node, 'leo_date', 'clock', []),
     ?assertMatch({value, _}, leo_rpc:nb_yield(RPCKey4)),
-    ?assertEqual({badrpc,invalid_key}, leo_rpc:nb_yield(RPCKey4)),
+    %% ?assertEqual({badrpc,invalid_key}, leo_rpc:nb_yield(RPCKey4)),
 
     %% "leo_rpc:multicall/4"
     Nodes = [Node, Node],
