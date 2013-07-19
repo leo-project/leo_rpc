@@ -73,7 +73,6 @@ suite_(Node) ->
 
     RPCKey4 = leo_rpc:async_call(Node, 'leo_date', 'clock', []),
     ?assertMatch({value, _}, leo_rpc:nb_yield(RPCKey4)),
-    %% ?assertEqual({badrpc,invalid_key}, leo_rpc:nb_yield(RPCKey4)),
 
     %% "leo_rpc:multicall/4"
     Nodes = [Node, Node],
@@ -97,6 +96,9 @@ suite_(Node) ->
                         8  * 1024*1024,
                         9  * 1024*1024,
                         10 * 1024*1024]),
+
+    Bin = leo_rpc:call(Node, crypto, rand_bytes, [1024*1024]),
+    ?debugVal(Bin),
 
     %% Others
     ?assertEqual(pong, leo_rpc:ping(Node)),
