@@ -85,7 +85,6 @@ param_to_binary(Mod, Method, Args) ->
                                   Bin/binary, ?CRLF/binary >>
                        end, <<>>, Args),
     BodyLen = byte_size(Body),
-
     << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, ?CRLF/binary,
        ModMethodBin/binary, ?CRLF/binary,
        ParamLen:?BLEN_PARAM_LEN/integer, BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
@@ -216,7 +215,6 @@ result_to_binary_1(Index, Term, Acc) ->
 
 binary_to_result(<< "*", Type:?BLEN_TYPE_LEN/binary, "\r\n", Rest/binary >>) ->
     << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest1/binary >> = Rest,
-
     case Type of
         ?BIN_ORG_TYPE_BIN ->
             << Bin:Len/binary, "\r\n\r\n" >> = Rest1,
@@ -242,8 +240,9 @@ loop(Socket, Transport) ->
     ok = ranch_tcp:setopts(Socket, [{packet, line}]),
 
     case Transport:recv(Socket, 0, ?TIMEOUT) of
-        {ok, Data1} ->
-            Data2 = loop_1(Socket, Transport, 1, Data1),
+        %% Regular case
+        {ok, << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, "\r\n" >> = Data1} ->
+            Data2 = loop_1(Socket, Transport, ModMethodLen, Data1),
 
             case binary_to_param(Data2) of
                 {ok, #rpc_info{module = Mod,
@@ -261,17 +260,31 @@ loop(Socket, Transport) ->
                     Transport:send(Socket, <<"+ERROR\r\n">>)
             end,
             loop(Socket, Transport);
+
+        %% Invalid format
+        {ok, _Data} ->
+            Transport:send(Socket, <<"+ERROR\r\n">>),
+            loop(Socket, Transport);
+        %% Error
         _ ->
             ok = Transport:close(Socket)
     end.
 
 
-loop_1(Socket, Transport, Line, Acc) ->
-    case Transport:recv(Socket, 0, ?TIMEOUT) of
-        %% Retrieve the 2nd line
-        {ok, Bin1} when Line == 1 ->
-            loop_1(Socket, Transport, Line + 1, << Acc/binary, Bin1/binary>>);
+%% @doc Retrieve the 2nd line
+%% @private
+loop_1(Socket, Transport, ModMethodLen, Acc) ->
+    ok = ranch_tcp:setopts(Socket, [{packet, raw}]),
+    case Transport:recv(Socket, (ModMethodLen + 2), ?TIMEOUT) of
+        {ok, Bin1} ->
+            loop_2(Socket, Transport, << Acc/binary, Bin1/binary>>);
+        _ ->
+            Acc
+    end.
 
+loop_2(Socket, Transport, Acc) ->
+    ok = ranch_tcp:setopts(Socket, [{packet, line}]),
+    case Transport:recv(Socket, 0, ?TIMEOUT) of
         %% Retrieve the 3nd line
         {ok, << _ParamsLen:?BLEN_PARAM_LEN,
                 BodyLen:?BLEN_BODY_LEN, "\r\n" >> = Bin1} ->
