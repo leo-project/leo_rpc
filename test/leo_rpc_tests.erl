@@ -97,8 +97,8 @@ suite_(Node) ->
                         9  * 1024*1024,
                         10 * 1024*1024]),
 
-    Bin = leo_rpc:call(Node, crypto, rand_bytes, [1024*1024]),
-    ?debugVal(Bin),
+    %% Bin = leo_rpc:call(Node, crypto, rand_bytes, [1024*1024]),
+    %% ?debugVal(Bin),
 
     %% Others
     ?assertEqual(pong, leo_rpc:ping(Node)),

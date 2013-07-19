@@ -34,6 +34,8 @@
          ping/1, status/0, node/0, nodes/0
         ]).
 
+-export([loop_1/4, loop_2/4]).
+
 -define(DEF_TIMEOUT, 5000).
 
 
@@ -47,9 +49,7 @@
 -spec(async_call(atom(), atom(), atom(), list(any())) ->
              pid()).
 async_call(Node, Mod, Method, Args) ->
-    spawn(fun() ->
-                  loop_1(Node, Mod, Method, Args)
-          end).
+    erlang:spawn(?MODULE, loop_1, [Node, Mod, Method, Args]).
 
 
 %% @doc Evaluates apply(Module, Function, Args) on the node Node
@@ -94,9 +94,8 @@ multicall(Nodes, Mod, Method, Args) ->
              any() | {badrpc, any()}).
 multicall(Nodes, Mod, Method, Args, Timeout) ->
     Self = self(),
-    Pid  = spawn(fun() ->
-                         loop_2(Self, erlang:length(Nodes), {[],[]}, Timeout)
-                 end),
+    Pid  = erlang:spawn(?MODULE, loop_2,
+                        [Self, erlang:length(Nodes), {[],[]}, Timeout]),
     ok = multicall_1(Nodes, Pid, Mod, Method, Args, Timeout),
     receive
         Ret ->
@@ -129,15 +128,12 @@ nb_yield(Key, Timeout) when is_pid(Key) ->
         true ->
             erlang:send(Key, {get, self()}),
             receive
-                {Node, Mod, Method, Args} ->
-                    case call(Node, Mod, Method, Args, Timeout) of
-                        {badrpc, timeout} ->
-                            timeout;
-                        {badrpc, Cause} ->
-                            {badrpc, Cause};
-                        Ret ->
-                            {value, Ret}
-                    end
+                {badrpc, timeout} ->
+                    timeout;
+                {badrpc, Cause} ->
+                    {badrpc, Cause};
+                Ret ->
+                    {value, Ret}
             after Timeout ->
                     timeout
             end
@@ -245,9 +241,10 @@ exec_1(PodName, ParamsBin, Timeout) ->
 loop_1(Node, Mod, Method, Args) ->
     loop_1(Node, Mod, Method, Args, ?DEF_TIMEOUT).
 loop_1(Node, Mod, Method, Args, Timeout) ->
+    Ret = call(Node, Mod, Method, Args),
     receive
         {get, Client} ->
-            erlang:send(Client, {Node, Mod, Method,Args})
+            erlang:send(Client, Ret)
     after
         Timeout ->
             timeout
