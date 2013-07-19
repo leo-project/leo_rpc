@@ -233,7 +233,7 @@ exec_1(PodName, ParamsBin, Timeout) ->
                        Ret1 ->
                            Ret1
                    end,
-            leo_pod:checkin(PodName, ServerRef),
+            leo_pod:checkin_async(PodName, ServerRef),
             Ret2;
         _ ->
             {error, []}

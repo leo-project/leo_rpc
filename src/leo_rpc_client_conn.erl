@@ -95,6 +95,8 @@ handle_cast(_Msg, State) ->
 
 
 handle_info({tcp ,_Socket, Bs}, State) ->
+    %% @TODO
+    %% ?debugVal(Bs),
     inet:setopts(State#state.socket, [{active, once}]),
     {noreply, handle_response(Bs, State)};
 
