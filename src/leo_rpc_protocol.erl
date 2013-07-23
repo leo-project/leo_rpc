@@ -26,7 +26,9 @@
 -include("leo_rpc.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--export([start_link/4, init/4]).
+-export([start_link/0, start_link/1,
+         stop/0]).
+-export([init/1, handle_call/3]).
 -export([param_to_binary/3, binary_to_param/1,
          result_to_binary/1, binary_to_result/1
         ]).
@@ -34,25 +36,108 @@
 -undef(TIMEOUT).
 -define(TIMEOUT, 5000).
 
+-define(RET_ERROR, <<"+ERROR\r\n">>).
+
 %% ===================================================================
-%% API
+%% API-1
 %% ===================================================================
-%% @doc Start and link a process
--spec(start_link(pid(), reference(), reference(), list()) ->
-             {ok, pid()}).
-start_link(ListenerPid, Socket, Transport, Opts) ->
-    Pid = spawn_link(?MODULE, init, [ListenerPid, Socket, Transport, Opts]),
-    {ok, Pid}.
+start_link() ->
+    Params = #tcp_server_params{listen = [binary, {packet, line},
+                                          {active, false}, {reuseaddr, true},
+                                          {backlog, 1024}, {nodelay, true}]},
+    start_link(Params).
+
+start_link(Params) ->
+    NumOfAcceptors =
+        case application:get_env('leo_rpc', 'num_of_acceptors') of
+            {ok, Env1} -> Env1;
+            _ -> ?DEF_ACCEPTORS
+        end,
+    ListenPort =
+        case application:get_env('leo_rpc', 'listen_port') of
+            {ok, Env2} -> Env2;
+            _ -> ?DEF_LISTEN_PORT
+        end,
+    leo_rpc_server:start_link(?MODULE, [],
+                              Params#tcp_server_params{num_of_listeners = NumOfAcceptors,
+                                                       port = ListenPort}).
+
+stop() ->
+    leo_rpc_server:stop().
 
 
-%% @doc Initialize a process
--spec(init(pid(), reference(), reference(), list()) ->
-             ok).
-init(ListenerPid, Socket, Transport, _Opts = []) ->
-    ok = ranch:accept_ack(ListenerPid),
-    loop(Socket, Transport).
+%%----------------------------------------------------------------------
+%% Callback function(s)
+%%----------------------------------------------------------------------
+init(_) ->
+    {ok, null}.
 
 
+handle_call(Socket, Data, State) ->
+    Reply = case Data of
+                << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, "\r\n" >> ->
+                    Data1 = handle_call_1(Socket, ModMethodLen, Data),
+
+                    case binary_to_param(Data1) of
+                        {ok, #rpc_info{module = Mod,
+                                       method = Method,
+                                       params = Args}} ->
+                            Ret = case catch erlang:apply(Mod, Method, Args) of
+                                      {'EXIT', Cause} ->
+                                          {error, Cause};
+                                      Term ->
+                                          Term
+                                  end,
+                            result_to_binary(Ret);
+                        {error,_Cause} ->
+                            ?RET_ERROR
+                    end;
+                _ ->
+                    ?RET_ERROR
+            end,
+    {reply, Reply, State}.
+
+
+%% @doc Retrieve the 2nd line
+%% @private
+handle_call_1(Socket, ModMethodLen, Acc) ->
+    ok = inet:setopts(Socket, [{packet, raw}]),
+    case gen_tcp:recv(Socket, (ModMethodLen + 2), ?TIMEOUT) of
+        {ok, Bin1} ->
+            handle_call_2(Socket, << Acc/binary, Bin1/binary >>);
+        _ ->
+            Acc
+    end.
+
+%% @doc Retrieve the 3rd line
+%% @private
+handle_call_2(Socket, Acc) ->
+    ok = inet:setopts(Socket, [{packet, line}]),
+    case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
+        %% Retrieve the 3nd line
+        {ok, << _ParamsLen:?BLEN_PARAM_LEN,
+                BodyLen:?BLEN_BODY_LEN, "\r\n" >> = Bin} ->
+            handle_call_3(Socket, BodyLen, << Acc/binary, Bin/binary >> )
+    end.
+
+
+%% @doc Retrieve the 4th line
+%% @private
+handle_call_3(Socket, BodyLen, Acc) ->
+    ok = inet:setopts(Socket, [{packet, raw}]),
+    Ret = case gen_tcp:recv(Socket, (BodyLen + 2), ?TIMEOUT) of
+              {ok, Bin} ->
+                  << Acc/binary, Bin/binary >>;
+              _ ->
+                  Acc
+          end,
+    ok = inet:setopts(Socket, [{packet, line}]),
+    Ret.
+
+
+%% ===================================================================
+%% API-2
+%% ===================================================================
 %% @doc Convert from param to binary
 %% Format:
 %% << "*",
@@ -229,75 +314,4 @@ binary_to_result(<< "*", Type:?BLEN_TYPE_LEN/binary, "\r\n", Rest/binary >>) ->
     end;
 binary_to_result(_) ->
     {error, invalid_format}.
-
-
-%% ===================================================================
-%% Inner Functions
-%% ===================================================================
-%% @doc Receive requested data
-%% @private
-loop(Socket, Transport) ->
-    ok = ranch_tcp:setopts(Socket, [{packet, line}]),
-
-    case Transport:recv(Socket, 0, ?TIMEOUT) of
-        %% Regular case
-        {ok, << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, "\r\n" >> = Data1} ->
-            Data2 = loop_1(Socket, Transport, ModMethodLen, Data1),
-
-            case binary_to_param(Data2) of
-                {ok, #rpc_info{module = Mod,
-                               method = Method,
-                               params = Args}} ->
-                    Ret1 = case catch erlang:apply(Mod, Method, Args) of
-                               {'EXIT', Cause} ->
-                                   {error, Cause};
-                               Term ->
-                                   Term
-                           end,
-                    Ret2 = result_to_binary(Ret1),
-                    Transport:send(Socket, Ret2);
-                {error,_Cause} ->
-                    Transport:send(Socket, <<"+ERROR\r\n">>)
-            end,
-            loop(Socket, Transport);
-
-        %% Invalid format
-        {ok, _Data} ->
-            Transport:send(Socket, <<"+ERROR\r\n">>),
-            loop(Socket, Transport);
-        %% Error
-        _ ->
-            ok = Transport:close(Socket)
-    end.
-
-
-%% @doc Retrieve the 2nd line
-%% @private
-loop_1(Socket, Transport, ModMethodLen, Acc) ->
-    ok = ranch_tcp:setopts(Socket, [{packet, raw}]),
-    case Transport:recv(Socket, (ModMethodLen + 2), ?TIMEOUT) of
-        {ok, Bin1} ->
-            loop_2(Socket, Transport, << Acc/binary, Bin1/binary>>);
-        _ ->
-            Acc
-    end.
-
-loop_2(Socket, Transport, Acc) ->
-    ok = ranch_tcp:setopts(Socket, [{packet, line}]),
-    case Transport:recv(Socket, 0, ?TIMEOUT) of
-        %% Retrieve the 3nd line
-        {ok, << _ParamsLen:?BLEN_PARAM_LEN,
-                BodyLen:?BLEN_BODY_LEN, "\r\n" >> = Bin1} ->
-
-            %% Retrieve the 4th line
-            ok = ranch_tcp:setopts(Socket, [{packet, raw}]),
-            case Transport:recv(Socket, (BodyLen + 2), ?TIMEOUT) of
-                {ok, Bin2} ->
-                    << Acc/binary, Bin1/binary, Bin2/binary >>;
-                _ ->
-                    Acc
-            end;
-        _ ->
-            Acc
-    end.
 

@@ -66,6 +66,22 @@
                     manager_ref :: atom()
                   }).
 
+-record(tcp_server_params, {
+          prefix_of_name = "leo_rpc_listener_"  :: string(),
+          listen = [binary, {packet, line},
+                    {active, false}, {reuseaddr, true},
+                    {backlog, 1024}, {nodelay, true}],
+          port                    = 13075 :: pos_integer(),
+          num_of_listeners        = 256   :: pos_integer(),
+          restart_times           = 3     :: pos_integer(),
+          time                    = 60    :: pos_integer(),
+          shutdown                = 2000  :: pos_integer(),
+          accept_timeout          = infinity,
+          accept_error_sleep_time = 3000  :: pos_integer(),
+          recv_length             = 0     :: pos_integer(),
+          recv_timeout            = infinity
+         }).
+
 
 -ifdef(TEST).
 -define(DEF_INSPECT_INTERVAL, 500).
