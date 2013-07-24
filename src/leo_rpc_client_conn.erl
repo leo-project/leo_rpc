@@ -214,20 +214,16 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
     end.
 
 
-recv(Socket, << "*", _Type:?BLEN_TYPE_LEN/binary, "\r\n" >> = Bin) ->
-    Ret = gen_tcp:recv(Socket, 0, ?RECV_TIMEOUT),
-    recv_1(Socket, Ret, Bin);
+recv(Socket, << "*",
+                _Type:?BLEN_TYPE_LEN/binary,
+                BodyLen:?BLEN_BODY_LEN/integer, "\r\n" >> = Bin) ->
+    inet:setopts(Socket, [{packet, raw}]),
+    case gen_tcp:recv(Socket, (BodyLen + 2), ?RECV_TIMEOUT) of
+        {ok, Bin1 } ->
+            << Bin/binary, Bin1/binary >>;
+        _ ->
+            Bin
+    end;
 recv(_Socket, Bin) ->
     Bin.
 
-recv_1(Socket, {ok, << BodyLen:?BLEN_BODY_LEN/integer, "\r\n" >> = Bin1}, Acc) ->
-    inet:setopts(Socket, [{packet, raw}]),
-    Ret = case gen_tcp:recv(Socket, (BodyLen + 2), ?RECV_TIMEOUT) of
-              {ok, Bin2 } ->
-                  << Acc/binary, Bin1/binary, Bin2/binary >>;
-              _ ->
-                  Acc
-          end,
-    Ret;
-recv_1(_Socket, _, Acc) ->
-    Acc.
