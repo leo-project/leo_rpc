@@ -41,7 +41,14 @@
 %% API functions
 %% ===================================================================
 start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+    case supervisor:start_link({local, ?MODULE}, ?MODULE, []) of
+        {ok,_Pid} = Ret ->
+            leo_rpc_protocol:start_link(),
+            Ret;
+        Error ->
+            Error
+    end.
+
 
 stop() ->
     case whereis(?MODULE) of
@@ -58,26 +65,8 @@ stop() ->
 %% ===================================================================
 init([]) ->
     catch leo_misc:init_env(),
-
-    NumOfAcceptors =
-        case application:get_env('leo_rpc', 'num_of_acceptors') of
-            {ok, Env1} -> Env1;
-            _ -> ?DEF_ACCEPTORS
-        end,
-    ListenPort =
-        case application:get_env('leo_rpc', 'listen_port') of
-            {ok, Env2} -> Env2;
-            _ -> ?DEF_LISTEN_PORT
-        end,
-
-    RanchSupSpec = {ranch_sup, {ranch_sup, start_link, []},
-                    permanent, 5000, supervisor, [ranch_sup]},
-    RanchChildSpec = ranch:child_spec(leo_rpc_protocol, NumOfAcceptors,
-                                      ranch_tcp, [{port, ListenPort}],
-                                      leo_rpc_protocol, []),
-
     ClientSupSpec = {leo_rpc_client_sup, {leo_rpc_client_sup, start_link, []},
                      permanent, 5000, supervisor, [leo_rpc_client_sup]},
-    ChildSpecs = [RanchSupSpec, RanchChildSpec, ClientSupSpec],
+    ChildSpecs = [ClientSupSpec],
     {ok, { {one_for_one, 5, 10}, ChildSpecs} }.
 

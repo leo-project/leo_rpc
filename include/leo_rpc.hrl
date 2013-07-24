@@ -32,6 +32,7 @@
 -define(BLEN_PARAM_LEN,       8).
 -define(BLEN_PARAM_TERM,     32).
 -define(BLEN_BODY_LEN,       32).
+-define(RET_ERROR, <<"+ERROR\r\n">>).
 
 
 %% @doc: rpc-server related definitions
@@ -65,6 +66,22 @@
                     workers = 0 :: pos_integer(),
                     manager_ref :: atom()
                   }).
+
+-record(tcp_server_params, {
+          prefix_of_name = "leo_rpc_listener_"  :: string(),
+          listen = [binary, {packet, line},
+                    {active, false}, {reuseaddr, true},
+                    {backlog, 1024}, {nodelay, true}],
+          port                    = 13075 :: pos_integer(),
+          num_of_listeners        = 256   :: pos_integer(),
+          restart_times           = 3     :: pos_integer(),
+          time                    = 60    :: pos_integer(),
+          shutdown                = 2000  :: pos_integer(),
+          accept_timeout          = infinity,
+          accept_error_sleep_time = 3000  :: pos_integer(),
+          recv_length             = 0     :: pos_integer(),
+          recv_timeout            = infinity
+         }).
 
 
 -ifdef(TEST).

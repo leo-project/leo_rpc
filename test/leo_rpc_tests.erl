@@ -81,7 +81,7 @@ suite_(Node) ->
     ?assertEqual({[Param2,Param2],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['d', Param1, Param2])),
     ?assertMatch({[_,_],[]}, leo_rpc:multicall(Nodes, 'leo_date', 'clock', [])),
 
-    %% send large-object
+    %% send a large-object
     lists:foreach(fun(Size) ->
                           Bin = crypto:rand_bytes(Size),
                           RPCKey5 = leo_rpc:async_call(Node, 'erlang', 'byte_size', [Bin]),
@@ -97,8 +97,20 @@ suite_(Node) ->
                         9  * 1024*1024,
                         10 * 1024*1024]),
 
-    %% Bin = leo_rpc:call(Node, crypto, rand_bytes, [1024*1024]),
-    %% ?debugVal(Bin),
+    %% receive a large-object
+    lists:foreach(fun(Size) ->
+                          Bin = leo_rpc:call(Node, crypto, rand_bytes, [Size]),
+                          ?assertEqual(Size, byte_size(Bin))
+                  end, [1  * 1024*1024,
+                        2  * 1024*1024,
+                        3  * 1024*1024,
+                        4  * 1024*1024,
+                        5  * 1024*1024,
+                        6  * 1024*1024,
+                        7  * 1024*1024,
+                        8  * 1024*1024,
+                        9  * 1024*1024,
+                        10 * 1024*1024]),
 
     %% Others
     ?assertEqual(pong, leo_rpc:ping(Node)),

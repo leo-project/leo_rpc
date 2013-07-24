@@ -208,14 +208,15 @@ exec(Node, ParamsBin, Timeout) ->
         [] ->
             {error, invalid_node};
         _ ->
-            case ets:lookup(?TBL_RPC_CONN_INFO, Node1) of
-                [] ->
+            PodName = leo_rpc_client_utils:get_client_worker_id(Node1, Port1),
+            case whereis(PodName) of
+                undefined ->
                     leo_rpc_client_sup:start_child(Node1, IP1, Port1);
                 _ ->
                     void
             end,
 
-            PodName = leo_rpc_client_utils:get_client_worker_id(Node1, Port1),
+            %% execute a requested function with a remote-node
             exec_1(PodName, ParamsBin, Timeout)
     end.
 
