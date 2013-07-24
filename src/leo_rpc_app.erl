@@ -28,15 +28,38 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% Application callbacks
--export([start/2, stop/1]).
+-export([start/2, stop/1, profile_output/0]).
 
 
 %% ===================================================================
 %% Application callbacks
 %% ===================================================================
 start(_StartType, _StartArgs) ->
+    consider_profiling(),
     leo_rpc_sup:start_link().
 
 
 stop(_State) ->
     ok.
+
+
+-spec(profile_output() ->
+             ok).
+profile_output() ->
+    eprof:stop_profiling(),
+    eprof:log("leo_rpc.procs.profile"),
+    eprof:analyze(procs),
+    eprof:log("leo_rpc.total.profile"),
+    eprof:analyze(total).
+
+
+-spec(consider_profiling() ->
+             profiling | not_profiling | {error, any()}).
+consider_profiling() ->
+    case application:get_env(leo_rpc, profile) of
+        {ok, true} ->
+            {ok, _Pid} = eprof:start(),
+            eprof:start_profiling([self()]);
+        _ ->
+            not_profiling
+    end.
