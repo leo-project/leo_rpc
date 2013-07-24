@@ -31,6 +31,7 @@
 -define(BLEN_TYPE_LEN,        1).
 -define(BLEN_PARAM_LEN,       8).
 -define(BLEN_PARAM_TERM,     32).
+-define(BLEN_BODY_ROWS,       8).
 -define(BLEN_BODY_LEN,       32).
 
 

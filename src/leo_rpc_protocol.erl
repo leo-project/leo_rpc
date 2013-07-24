@@ -240,6 +240,7 @@ binary_to_param_1(_Bin,_) ->
 %% Format:
 %% << "*",
 %%    $OriginalDataTypeBin/binary, "/r/n",
+%%    $ResultRows/integer,         "/r/n",
 %%    $BodyBin_1_Len/integer,      "/r/n",
 %%    $BodyBin_1/binary,           "/r/n",
 %%    ...
@@ -251,24 +252,30 @@ binary_to_param_1(_Bin,_) ->
 -spec(result_to_binary(any()) ->
              binary()).
 result_to_binary(Term) when is_tuple(Term) ->
-    {ok, Body} = result_to_binary_1(tuple_size(Term), Term, <<>>),
+    BodyRows = tuple_size(Term),
+    {ok, Body} = result_to_binary_1(BodyRows, Term, <<>>),
     << "*",
        ?BIN_ORG_TYPE_TUPLE/binary, ?CRLF/binary,
+       BodyRows:?BLEN_BODY_ROWS/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>;
 result_to_binary(Term) when is_binary(Term) ->
+    BodyRows = 1,
     Len = byte_size(Term),
     Body = << Len:?BLEN_PARAM_TERM/integer, ?CRLF/binary,
               Term/binary, ?CRLF/binary >>,
     << "*",
        ?BIN_ORG_TYPE_BIN/binary, ?CRLF/binary,
+       BodyRows:?BLEN_BODY_ROWS/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>;
 result_to_binary(Term) ->
+    BodyRows = 1,
     Bin = term_to_binary(Term),
     Len = byte_size(Bin),
     Body = << Len:?BLEN_PARAM_TERM/integer, ?CRLF/binary,
               Bin/binary, ?CRLF/binary >>,
     << "*",
        ?BIN_ORG_TYPE_TERM/binary, ?CRLF/binary,
+       BodyRows:?BLEN_BODY_ROWS/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>.
 
 
@@ -299,13 +306,15 @@ result_to_binary_1(Index, Term, Acc) ->
              any()).
 
 binary_to_result(<< "*", Type:?BLEN_TYPE_LEN/binary, "\r\n", Rest/binary >>) ->
-    << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest1/binary >> = Rest,
+    << _BodyRows:?BLEN_BODY_ROWS/integer, "\r\n", Rest1/binary >> = Rest,
+    << Len:?BLEN_PARAM_TERM/integer,      "\r\n", Rest2/binary >> = Rest1,
+
     case Type of
         ?BIN_ORG_TYPE_BIN ->
-            << Bin:Len/binary, "\r\n\r\n" >> = Rest1,
+            << Bin:Len/binary, "\r\n\r\n" >> = Rest2,
             Bin;
         ?BIN_ORG_TYPE_TERM ->
-            << Term:Len/binary, "\r\n\r\n" >> = Rest1,
+            << Term:Len/binary, "\r\n\r\n" >> = Rest2,
             binary_to_term(Term);
         ?BIN_ORG_TYPE_TUPLE ->
             void;
