@@ -45,7 +45,8 @@
           queue = [] :: list()
          }).
 
--define(SOCKET_OPTS, [binary, {active, once}, {packet, raw}, {reuseaddr, true}]).
+
+-define(SOCKET_OPTS, [binary, {active, once}, {packet, line}, {reuseaddr, true}]).
 -define(RECV_TIMEOUT, 5000).
 
 
@@ -94,11 +95,10 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 
-handle_info({tcp ,_Socket, Bs}, State) ->
-    %% @TODO
-    %% ?debugVal(Bs),
-    inet:setopts(State#state.socket, [{active, once}]),
-    {noreply, handle_response(Bs, State)};
+handle_info({tcp, Socket, Bs}, State) ->
+    Res = recv(Socket, Bs),
+    inet:setopts(Socket, [{active, once},{packet, line}]),
+    {noreply, handle_response(Res, State)};
 
 handle_info({tcp_error, _Socket, _Reason}, State) ->
     {noreply, State};
@@ -212,3 +212,22 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
             timer:sleep(ReconnectSleepInterval),
             reconnect_loop(Client, State)
     end.
+
+
+recv(Socket, << "*", _Type:?BLEN_TYPE_LEN/binary, "\r\n" >> = Bin) ->
+    Ret = gen_tcp:recv(Socket, 0, ?RECV_TIMEOUT),
+    recv_1(Socket, Ret, Bin);
+recv(_Socket, Bin) ->
+    Bin.
+
+recv_1(Socket, {ok, << BodyLen:?BLEN_BODY_LEN/integer, "\r\n" >> = Bin1}, Acc) ->
+    inet:setopts(Socket, [{packet, raw}]),
+    Ret = case gen_tcp:recv(Socket, (BodyLen + 2), ?RECV_TIMEOUT) of
+              {ok, Bin2 } ->
+                  << Acc/binary, Bin1/binary, Bin2/binary >>;
+              _ ->
+                  Acc
+          end,
+    Ret;
+recv_1(_Socket, _, Acc) ->
+    Acc.

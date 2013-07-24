@@ -36,7 +36,6 @@
 -undef(TIMEOUT).
 -define(TIMEOUT, 5000).
 
--define(RET_ERROR, <<"+ERROR\r\n">>).
 
 %% ===================================================================
 %% API-1
@@ -117,7 +116,9 @@ handle_call_2(Socket, Acc) ->
         %% Retrieve the 3nd line
         {ok, << _ParamsLen:?BLEN_PARAM_LEN,
                 BodyLen:?BLEN_BODY_LEN, "\r\n" >> = Bin} ->
-            handle_call_3(Socket, BodyLen, << Acc/binary, Bin/binary >> )
+            handle_call_3(Socket, BodyLen, << Acc/binary, Bin/binary >> );
+        _ ->
+            Acc
     end.
 
 
@@ -252,30 +253,30 @@ binary_to_param_1(_Bin,_) ->
 -spec(result_to_binary(any()) ->
              binary()).
 result_to_binary(Term) when is_tuple(Term) ->
-    BodyRows = tuple_size(Term),
-    {ok, Body} = result_to_binary_1(BodyRows, Term, <<>>),
+    {ok, Body} = result_to_binary_1(tuple_size(Term), Term, <<>>),
+    BodyLen = byte_size(Body),
     << "*",
        ?BIN_ORG_TYPE_TUPLE/binary, ?CRLF/binary,
-       BodyRows:?BLEN_BODY_ROWS/integer, ?CRLF/binary,
+       BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>;
 result_to_binary(Term) when is_binary(Term) ->
-    BodyRows = 1,
     Len = byte_size(Term),
     Body = << Len:?BLEN_PARAM_TERM/integer, ?CRLF/binary,
               Term/binary, ?CRLF/binary >>,
+    BodyLen = byte_size(Body),
     << "*",
        ?BIN_ORG_TYPE_BIN/binary, ?CRLF/binary,
-       BodyRows:?BLEN_BODY_ROWS/integer, ?CRLF/binary,
+       BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>;
 result_to_binary(Term) ->
-    BodyRows = 1,
     Bin = term_to_binary(Term),
     Len = byte_size(Bin),
     Body = << Len:?BLEN_PARAM_TERM/integer, ?CRLF/binary,
               Bin/binary, ?CRLF/binary >>,
+    BodyLen = byte_size(Body),
     << "*",
        ?BIN_ORG_TYPE_TERM/binary, ?CRLF/binary,
-       BodyRows:?BLEN_BODY_ROWS/integer, ?CRLF/binary,
+       BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>.
 
 
@@ -306,8 +307,8 @@ result_to_binary_1(Index, Term, Acc) ->
              any()).
 
 binary_to_result(<< "*", Type:?BLEN_TYPE_LEN/binary, "\r\n", Rest/binary >>) ->
-    << _BodyRows:?BLEN_BODY_ROWS/integer, "\r\n", Rest1/binary >> = Rest,
-    << Len:?BLEN_PARAM_TERM/integer,      "\r\n", Rest2/binary >> = Rest1,
+    << _BodyLen:?BLEN_BODY_LEN/integer, "\r\n", Rest1/binary >> = Rest,
+    << Len:?BLEN_PARAM_TERM/integer,    "\r\n", Rest2/binary >> = Rest1,
 
     case Type of
         ?BIN_ORG_TYPE_BIN ->
