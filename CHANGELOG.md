@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.4.3  (Jul 24, 2013)
+
+* Improvement
+    * Performance tuning
+* Bug Fixed
+    * Fixed the part of parsing data
+
+
 ## 0.4.2  (Jul 17, 2013)
 
 * Bug Fixed

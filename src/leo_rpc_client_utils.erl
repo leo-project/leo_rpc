@@ -40,7 +40,7 @@ get_client_worker_id(Host, Port) when is_atom(Host) ->
     get_client_worker_id(atom_to_list(Host), Port);
 
 get_client_worker_id(Host, Port) ->
-    Id = list_to_atom(lists:append([create_client_worker_id(Host, Port)])),
+    Id = list_to_atom(create_client_worker_id(Host, Port)),
     Id.
 
 

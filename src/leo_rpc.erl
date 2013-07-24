@@ -34,6 +34,8 @@
          ping/1, status/0, node/0, nodes/0
         ]).
 
+-export([loop_1/4, loop_2/4]).
+
 -define(DEF_TIMEOUT, 5000).
 
 
@@ -47,18 +49,7 @@
 -spec(async_call(atom(), atom(), atom(), list(any())) ->
              pid()).
 async_call(Node, Mod, Method, Args) ->
-    case leo_pod:checkout(?DEF_CLIENT_WORKER_SUP_ID) of
-        {ok, WorkerPid} ->
-            Clock = leo_date:clock(),
-            case gen_server:call(WorkerPid, {in, Clock, Node, Mod, Method, Args}) of
-                ok ->
-                    {Clock, WorkerPid};
-                _ ->
-                    undefined
-            end;
-        _ ->
-            undefined
-    end.
+    erlang:spawn(?MODULE, loop_1, [Node, Mod, Method, Args]).
 
 
 %% @doc Evaluates apply(Module, Function, Args) on the node Node
@@ -103,9 +94,8 @@ multicall(Nodes, Mod, Method, Args) ->
              any() | {badrpc, any()}).
 multicall(Nodes, Mod, Method, Args, Timeout) ->
     Self = self(),
-    Pid  = spawn(fun() ->
-                         loop_2(Self, erlang:length(Nodes), {[],[]}, Timeout)
-                 end),
+    Pid  = erlang:spawn(?MODULE, loop_2,
+                        [Self, erlang:length(Nodes), {[],[]}, Timeout]),
     ok = multicall_1(Nodes, Pid, Mod, Method, Args, Timeout),
     receive
         Ret ->
@@ -131,24 +121,22 @@ nb_yield(Key) ->
 
 -spec(nb_yield(pid(), pos_integer()) ->
              {value, any()} | timeout | {badrpc, any()}).
-nb_yield(Key, Timeout) when is_tuple(Key) ->
-    {Clock, WorkerPid} = Key,
-    case gen_server:call(WorkerPid, {out, Clock}, Timeout) of
-        {ok, {Node, Mod, Method, Args}} ->
-            Ret1 = case call(Node, Mod, Method, Args, Timeout) of
-                       {badrpc, timeout} ->
-                           timeout;
-                       {badrpc, Cause} ->
-                           {badrpc, Cause};
-                       Ret ->
-                           {value, Ret}
-                   end,
-            leo_pod:checkin(?DEF_CLIENT_WORKER_SUP_ID, WorkerPid),
-            Ret1;
-        {error, invalid_key = Cause} ->
-            {badrpc, Cause};
-        _ ->
-            timeout
+nb_yield(Key, Timeout) when is_pid(Key) ->
+    case erlang:is_process_alive(Key) of
+        false ->
+            {badrpc, invalid_key};
+        true ->
+            erlang:send(Key, {get, self()}),
+            receive
+                {badrpc, timeout} ->
+                    timeout;
+                {badrpc, Cause} ->
+                    {badrpc, Cause};
+                Ret ->
+                    {value, Ret}
+            after Timeout ->
+                    timeout
+            end
     end;
 nb_yield(_,_) ->
     {badrpc, invalid_key}.
@@ -220,14 +208,15 @@ exec(Node, ParamsBin, Timeout) ->
         [] ->
             {error, invalid_node};
         _ ->
-            case ets:lookup(?TBL_RPC_CONN_INFO, Node1) of
-                [] ->
+            PodName = leo_rpc_client_utils:get_client_worker_id(Node1, Port1),
+            case whereis(PodName) of
+                undefined ->
                     leo_rpc_client_sup:start_child(Node1, IP1, Port1);
                 _ ->
                     void
             end,
 
-            PodName = leo_rpc_client_utils:get_client_worker_id(Node1, Port1),
+            %% execute a requested function with a remote-node
             exec_1(PodName, ParamsBin, Timeout)
     end.
 
@@ -241,12 +230,26 @@ exec_1(PodName, ParamsBin, Timeout) ->
                        Ret1 ->
                            Ret1
                    end,
-            leo_pod:checkin(PodName, ServerRef),
+            leo_pod:checkin_async(PodName, ServerRef),
             Ret2;
         _ ->
             {error, []}
     end.
 
+
+%% @doc Receiver-1
+%% @private
+loop_1(Node, Mod, Method, Args) ->
+    loop_1(Node, Mod, Method, Args, ?DEF_TIMEOUT).
+loop_1(Node, Mod, Method, Args, Timeout) ->
+    Ret = call(Node, Mod, Method, Args),
+    receive
+        {get, Client} ->
+            erlang:send(Client, Ret)
+    after
+        Timeout ->
+            timeout
+    end.
 
 
 %% @doc Receiver-2

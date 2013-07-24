@@ -70,7 +70,7 @@ start_child(Host, IP, Port) ->
     start_child(Host, IP, Port, 0).
 
 start_child(Host, IP, Port, ReconnectSleep) ->
-    Id = list_to_atom(leo_rpc_client_utils:create_client_worker_id(Host, Port)),
+    Id = leo_rpc_client_utils:get_client_worker_id(Host, Port),   
     case whereis(Id) of
         undefined ->
             WorkerArgs = [Host, IP, Port, ReconnectSleep],
@@ -114,23 +114,13 @@ init([]) ->
                     {ok, EnvVal} -> EnvVal;
                     _ -> ?DEF_INSPECT_INTERVAL
                 end,
-
     ChildSpec = [
-                 %% rpc client manager
                  {leo_rpc_client_manager,
                   {leo_rpc_client_manager, start_link, [Interval]},
                   permanent,
                   2000,
                   worker,
-                  [leo_rpc_client_manager]},
-                 %% rpc client worker
-                 {?DEF_CLIENT_WORKER_SUP_ID, {leo_pod_sup, start_link,
-                                              [?DEF_CLIENT_WORKER_SUP_ID,
-                                               ?DEF_CLIENT_WORKER_POOL_SIZE,
-                                               ?DEF_CLIENT_WORKER_BUF_SIZE,
-                                               leo_rpc_client_worker, []]},
-                  permanent, ?SHUTDOWN_WAITING_TIME,
-                  supervisor, [leo_pod_sup]}
+                  [leo_rpc_client_manager]}
                 ],
     {ok, { {one_for_one, 5, 10}, ChildSpec} }.
 
