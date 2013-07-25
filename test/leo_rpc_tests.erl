@@ -81,6 +81,12 @@ suite_(Node) ->
     ?assertEqual({[Param2,Param2],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['d', Param1, Param2])),
     ?assertMatch({[_,_],[]}, leo_rpc:multicall(Nodes, 'leo_date', 'clock', [])),
 
+    %% a value type is tuple
+    Params   = [{ok, 1, 2}, 3, <<"name:LEO">>, <<"type:FS">>],
+    Expected = list_to_tuple(Params),
+    ?assertEqual(Expected, leo_rpc:call('node_0@127.0.0.1', 'erlang', 'list_to_tuple', [Params])),
+    ?assertMatch({_,_,_},  leo_rpc:call('node_0@127.0.0.1', 'erlang', 'now', [])),
+
     %% send a large-object
     lists:foreach(fun(Size) ->
                           Bin = crypto:rand_bytes(Size),
