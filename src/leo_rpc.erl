@@ -66,12 +66,7 @@ call(Node, Mod, Method, Args, Timeout) ->
 
     case exec(Node, ParamsBin, Timeout) of
         {ok, Val} ->
-            case leo_rpc_protocol:binary_to_result(Val) of
-                {error, Cause} ->
-                    {badrpc, Cause};
-                Res ->
-                    Res
-            end;
+            Val;
         {error, Cause} ->
             {badrpc, Cause}
     end.
