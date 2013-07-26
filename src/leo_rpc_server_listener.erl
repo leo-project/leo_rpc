@@ -92,7 +92,7 @@ recv(true = Active, _DummySocket, State, Module, Option) ->
         {tcp, Socket, Data} ->
             call(Active, Socket, Data, State, Module, Option);
         {tcp_closed, _Socket} ->
-            tcp_closed;
+            {error, connection_closed};
         {error, Reason} ->
             {error, Reason}
     after Option#tcp_server_params.recv_timeout ->
