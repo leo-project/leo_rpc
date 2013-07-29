@@ -64,9 +64,6 @@ start_link(Params) ->
                               Params#tcp_server_params{num_of_listeners = NumOfAcceptors,
                                                        port = ListenPort,
                                                        recv_timeout = ListenTimeout}).
-    %% leo_rpc_server:start_link(?MODULE, [],
-    %%                           Params#tcp_server_params{num_of_listeners = NumOfAcceptors,
-    %%                                                    port = ListenPort}).
 
 stop() ->
     leo_rpc_server:stop().
