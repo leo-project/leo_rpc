@@ -23,7 +23,7 @@
 {application, leo_rpc,
  [
   {description, "leo rpc library"},
-  {vsn, "0.4.3"},
+  {vsn, "0.6.0"},
   {registered, []},
   {applications, [
                   kernel,
@@ -33,6 +33,7 @@
   {env, [{node, 'node_0@127.0.0.1'},
          {num_of_acceptors, 128},
          {listen_port,    13075},
+         {listen_timeout,  5000},
          {profile, false}
         ]}
  ]}.

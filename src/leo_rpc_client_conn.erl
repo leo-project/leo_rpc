@@ -214,16 +214,78 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
     end.
 
 
+%% @doc Convert from result-value to binary
+%% data-format:
+%% << "*",
+%%    $OriginalDataTypeBin/binary, ResultBodyLen/integer, "/r/n",
+%%    $BodyBin_1_Len/integer,      "/r/n",
+%%    $BodyBin_1/binary,           "/r/n",
+%%    ...
+%%    $BodyBin_N_Len/integer,      "/r/n",
+%%    $BodyBin_N/binary,           "/r/n",
+%%    "/r/n"
+%%    >>
+%%
+-spec(recv(pid(), binary()) ->
+             any() | {error, invalid_format}).
 recv(Socket, << "*",
-                _Type:?BLEN_TYPE_LEN/binary,
-                BodyLen:?BLEN_BODY_LEN/integer, "\r\n" >> = Bin) ->
+                Type:?BLEN_TYPE_LEN/binary,
+                BodyLen:?BLEN_BODY_LEN/integer, "\r\n" >>) ->
     inet:setopts(Socket, [{packet, raw}]),
     case gen_tcp:recv(Socket, (BodyLen + 2), ?RECV_TIMEOUT) of
-        {ok, Bin1 } ->
-            << Bin/binary, Bin1/binary >>;
+        {ok, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>} ->
+            case Type of
+                ?BIN_ORG_TYPE_BIN ->
+                    << RetBin:Len/binary, "\r\n\r\n" >> = Rest,
+                    RetBin;
+                ?BIN_ORG_TYPE_TERM ->
+                    << Term:Len/binary, "\r\n\r\n" >> = Rest,
+                    binary_to_term(Term);
+                ?BIN_ORG_TYPE_TUPLE ->
+                    recv_1(Len, Rest, []);
+                _ ->
+                    {error, invalid_format}
+            end;
         _ ->
-            Bin
+            {error, invalid_format}
     end;
-recv(_Socket, Bin) ->
-    Bin.
+recv(_Socket,_) ->
+    {error, invalid_format}.
+
+recv_1(_, <<"\r\n">>, Acc) ->
+    list_to_tuple(Acc);
+recv_1(Len, << "B\r\n", Rest1/binary >>, Acc) ->
+    recv_2(Len, ?BIN_ORG_TYPE_BIN, Rest1, Acc);
+recv_1(Len, << "M\r\n", Rest1/binary >>, Acc) ->
+    recv_2(Len, ?BIN_ORG_TYPE_TERM, Rest1, Acc);
+recv_1(Len, << "T\r\n", Rest1/binary >>, Acc) ->
+    recv_2(Len, ?BIN_ORG_TYPE_TUPLE, Rest1, Acc);
+recv_1(_,_,_) ->
+    {error, invalid_format}.
+
+recv_2(Len, Type, Rest1, Acc) ->
+    case (byte_size(Rest1) > Len) of
+        true ->
+            << Item:Len/binary, "\r\n", Rest2/binary >> = Rest1,
+            {Len2, Rest4} =
+                case Rest2 of
+                    << Len1:?BLEN_PARAM_TERM/integer, "\r\n", Rest3/binary >> ->
+                        {Len1, Rest3};
+                    _ ->
+                        {0, Rest2}
+                end,
+
+            Acc1 = case Type of
+                       ?BIN_ORG_TYPE_BIN ->
+                           [Item|Acc];
+                       _ ->
+                           [binary_to_term(Item)|Acc]
+                   end,
+            recv_1(Len2, Rest4, Acc1);
+        false ->
+            {error, invalid_format}
+    end.
+
+
+
 

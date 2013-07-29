@@ -29,9 +29,7 @@
 -export([start_link/0, start_link/1,
          stop/0]).
 -export([init/1, handle_call/3]).
--export([param_to_binary/3, binary_to_param/1,
-         result_to_binary/1, binary_to_result/1
-        ]).
+-export([param_to_binary/3, result_to_binary/1]).
 
 -undef(TIMEOUT).
 -define(TIMEOUT, 5000).
@@ -57,9 +55,15 @@ start_link(Params) ->
             {ok, Env2} -> Env2;
             _ -> ?DEF_LISTEN_PORT
         end,
+    ListenTimeout =
+        case application:get_env('leo_rpc', 'listen_timeout') of
+            {ok, Env3} -> Env3;
+            _ -> ?DEF_LISTEN_TIMEOUT
+        end,
     leo_rpc_server:start_link(?MODULE, [],
                               Params#tcp_server_params{num_of_listeners = NumOfAcceptors,
-                                                       port = ListenPort}).
+                                                       port = ListenPort,
+                                                       recv_timeout = ListenTimeout}).
 
 stop() ->
     leo_rpc_server:stop().
@@ -72,12 +76,21 @@ init(_) ->
     {ok, null}.
 
 
+%% @doc Receive data from client(s)
+%%        after that convert from param to binary
+%% dat-format:
+%% << "*",
+%%    $ModMethodBin/binary,    "/r/n",
+%%    $ParamsLenBin:8/integer, $BodyLen:32/integer, "/r/n",
+%%    $Param_1_Bin_Len/binary, "/r/n", "T"|"B", $Param_1_Bin/binary, "/r/n",
+%%    ...
+%%    $Param_N_Bin_Len/binary, "/r/n", "T"|"B", $Param_N_Bin/binary, "/r/n",
+%%    "/r/n" >>
+%%
 handle_call(Socket, Data, State) ->
     Reply = case Data of
                 << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, "\r\n" >> ->
-                    Data1 = handle_call_1(Socket, ModMethodLen, Data),
-
-                    case binary_to_param(Data1) of
+                    case handle_call_1(Socket, ModMethodLen) of
                         {ok, #rpc_info{module = Mod,
                                        method = Method,
                                        params = Args}} ->
@@ -99,38 +112,45 @@ handle_call(Socket, Data, State) ->
 
 %% @doc Retrieve the 2nd line
 %% @private
-handle_call_1(Socket, ModMethodLen, Acc) ->
+handle_call_1(Socket, ModMethodLen) ->
     ok = inet:setopts(Socket, [{packet, raw}]),
     case gen_tcp:recv(Socket, (ModMethodLen + 2), ?TIMEOUT) of
-        {ok, Bin1} ->
-            handle_call_2(Socket, << Acc/binary, Bin1/binary >>);
+        {ok, << ModMethodBin:ModMethodLen/binary, "\r\n" >>} ->
+            {Mod, Method} = binary_to_term(ModMethodBin),
+            handle_call_2(Socket, #rpc_info{module = Mod,
+                                            method = Method});
         _ ->
-            Acc
+            {error, invalid_format}
     end.
 
 %% @doc Retrieve the 3rd line
 %% @private
-handle_call_2(Socket, Acc) ->
+handle_call_2(Socket, RPCInfo) ->
     ok = inet:setopts(Socket, [{packet, line}]),
     case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
         %% Retrieve the 3nd line
         {ok, << _ParamsLen:?BLEN_PARAM_LEN,
-                BodyLen:?BLEN_BODY_LEN, "\r\n" >> = Bin} ->
-            handle_call_3(Socket, BodyLen, << Acc/binary, Bin/binary >> );
+                BodyLen:?BLEN_BODY_LEN, "\r\n" >>} ->
+            handle_call_3(Socket, BodyLen, RPCInfo);
         _ ->
-            Acc
+            {error, invalid_format}
     end.
 
 
 %% @doc Retrieve the 4th line
 %% @private
-handle_call_3(Socket, BodyLen, Acc) ->
+handle_call_3(Socket, BodyLen, RPCInfo) ->
     ok = inet:setopts(Socket, [{packet, raw}]),
     Ret = case gen_tcp:recv(Socket, (BodyLen + 2), ?TIMEOUT) of
               {ok, Bin} ->
-                  << Acc/binary, Bin/binary >>;
+                  case binary_to_param(Bin, []) of
+                      {ok, Params} ->
+                          {ok, RPCInfo#rpc_info{params = Params}};
+                      Error ->
+                          Error
+                  end;
               _ ->
-                  Acc
+                  {error, invalid_format}
           end,
     ok = inet:setopts(Socket, [{packet, line}]),
     Ret.
@@ -178,52 +198,19 @@ param_to_binary(Mod, Method, Args) ->
 
 
 %% @doc Convert from binary to param
--spec(binary_to_param(binary()) ->
-             {ok, []} | {error, any()}).
-binary_to_param(<< "*",
-                   ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, "\r\n",
-                   Rest1/binary >>) ->
-
-    %% retrieve: module, method
-    case Rest1 of
-        << ModMethodBin:ModMethodLen/binary, "\r\n", Rest2/binary >> ->
-            {Mod, Method} = binary_to_term(ModMethodBin),
-
-            %% retrieve: param's length
-            case Rest2 of
-                << ParamsLen:?BLEN_PARAM_LEN/integer,
-                   _BodyLen:?BLEN_BODY_LEN/integer, "\r\n", Rest3/binary >> ->
-                    %% retrieve: params
-                    case binary_to_param_1(Rest3, []) of
-                        {ok, Params} when ParamsLen == length(Params) ->
-                            {ok, #rpc_info{module = Mod,
-                                           method = Method,
-                                           params = Params}};
-                        {ok, _} ->
-                            {error, invalid_format};
-                        {error, Cause} ->
-                            {error, Cause}
-                    end;
-                _ ->
-                    {error, invalid_format}
-            end;
-        _ ->
-            {error, invalid_format}
-    end;
-binary_to_param(_) ->
-    {error, invalid_format}.
-
-
-binary_to_param_1(?CRLF, Acc) ->
+%% @private
+-spec(binary_to_param(binary(), list()) ->
+             {ok, list()} | {error, invalid_format}).
+binary_to_param(?CRLF, Acc) ->
     {ok, lists:reverse(Acc)};
-binary_to_param_1(<< L:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, Acc) ->
+binary_to_param(<< L:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, Acc) ->
     case Rest of
         << Type:?BLEN_TYPE_LEN/binary,  "\r\n", Rest1/binary>> ->
             case Rest1 of
                 << Param:L/binary, "\r\n", Rest2/binary>> ->
                     case Type of
-                        ?BIN_ORG_TYPE_TERM -> binary_to_param_1(Rest2, [binary_to_term(Param)|Acc]);
-                        ?BIN_ORG_TYPE_BIN  -> binary_to_param_1(Rest2, [Param|Acc]);
+                        ?BIN_ORG_TYPE_TERM -> binary_to_param(Rest2, [binary_to_term(Param)|Acc]);
+                        ?BIN_ORG_TYPE_BIN  -> binary_to_param(Rest2, [Param|Acc]);
                         _ ->
                             {error, invalid_format}
                     end;
@@ -233,7 +220,7 @@ binary_to_param_1(<< L:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, Acc) ->
         _ ->
             {error, invalid_format}
     end;
-binary_to_param_1(_Bin,_) ->
+binary_to_param(_Bin,_) ->
     {error, invalid_format}.
 
 
@@ -292,30 +279,4 @@ result_to_binary_1(Index, Term, Acc) ->
                       Bin2/binary,                  ?CRLF/binary >>
            end,
     result_to_binary_1(Index-1, Term, Bin1).
-
-
-%% @doc Convert from binary to result-value
-%%
--spec(binary_to_result(binary()) ->
-             any()).
-
-binary_to_result(<< "*",
-                    Type:?BLEN_TYPE_LEN/binary,
-                    _BodyLen:?BLEN_BODY_LEN/integer, "\r\n", Rest/binary >>) ->
-    << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest1/binary >> = Rest,
-
-    case Type of
-        ?BIN_ORG_TYPE_BIN ->
-            << Bin:Len/binary, "\r\n\r\n" >> = Rest1,
-            Bin;
-        ?BIN_ORG_TYPE_TERM ->
-            << Term:Len/binary, "\r\n\r\n" >> = Rest1,
-            binary_to_term(Term);
-        ?BIN_ORG_TYPE_TUPLE ->
-            void;
-        _ ->
-            {error, invalid_format}
-    end;
-binary_to_result(_) ->
-    {error, invalid_format}.
 

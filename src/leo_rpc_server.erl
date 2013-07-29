@@ -38,8 +38,7 @@ start_link(Module, Args, #tcp_server_params{port = Port,
                                             listen = ListenerOption} = Option) ->
     case Module:init(Args) of
         {ok, State}  ->
-            case gen_tcp:listen(Port,
-                                ListenerOption) of
+            case gen_tcp:listen(Port, ListenerOption) of
                 {ok, Socket} ->
                     add_listener(Socket, State, Module, Option);
                 {error, Reason} ->
