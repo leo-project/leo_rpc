@@ -55,9 +55,18 @@ start_link(Params) ->
             {ok, Env2} -> Env2;
             _ -> ?DEF_LISTEN_PORT
         end,
+    ListenTimeout =
+        case application:get_env('leo_rpc', 'listen_timeout') of
+            {ok, Env3} -> Env3;
+            _ -> ?DEF_LISTEN_TIMEOUT
+        end,
     leo_rpc_server:start_link(?MODULE, [],
                               Params#tcp_server_params{num_of_listeners = NumOfAcceptors,
-                                                       port = ListenPort}).
+                                                       port = ListenPort,
+                                                       recv_timeout = ListenTimeout}).
+    %% leo_rpc_server:start_link(?MODULE, [],
+    %%                           Params#tcp_server_params{num_of_listeners = NumOfAcceptors,
+    %%                                                    port = ListenPort}).
 
 stop() ->
     leo_rpc_server:stop().

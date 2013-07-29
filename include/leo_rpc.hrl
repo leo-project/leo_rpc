@@ -38,9 +38,10 @@
 %% @doc: rpc-server related definitions
 %%
 -define(POOL_NAME, 'leo_tcp_pool').
--define(DEF_ACCEPTORS,   128).
--define(DEF_LISTEN_IP,   "127.0.0.1").
--define(DEF_LISTEN_PORT, 13075).
+-define(DEF_ACCEPTORS,      128).
+-define(DEF_LISTEN_IP,      "127.0.0.1").
+-define(DEF_LISTEN_PORT,    13075).
+-define(DEF_LISTEN_TIMEOUT, 5000).
 
 -define(DEF_CLIENT_POOL_NAME_PREFIX, "leo_rpc_client_").
 -define(DEF_CLIENT_CONN_POOL_SIZE, 64).
@@ -80,7 +81,7 @@
           accept_timeout          = infinity,
           accept_error_sleep_time = 3000  :: pos_integer(),
           recv_length             = 0     :: pos_integer(),
-          recv_timeout            = infinity
+          recv_timeout            = 5000  :: pos_integer()
          }).
 
 

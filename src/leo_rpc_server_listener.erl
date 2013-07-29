@@ -65,8 +65,13 @@ accept(ListenSocket, State, Module, Active,
                           accept_error_sleep_time = SleepTime} = Option) ->
     case gen_tcp:accept(ListenSocket, Timeout) of
         {ok, Socket} ->
-            recv(Active, Socket, State, Module, Option);
-        {error,_Reason} ->
+            case recv(Active, Socket, State, Module, Option) of
+                {error, _Reason} ->
+                    gen_tcp:close(Socket);
+                _ ->
+                    void
+            end;
+        {error, _Reason} ->
             timer:sleep(SleepTime)
     end,
     accept(ListenSocket, State, Module, Active, Option).
@@ -75,7 +80,6 @@ accept(ListenSocket, State, Module, Active,
 recv(false = Active, Socket, State, Module, Option) ->
     #tcp_server_params{recv_length = Length,
                        recv_timeout = Timeout} = Option,
-
     case catch gen_tcp:recv(Socket, Length, Timeout) of
         {ok, Data} ->
             call(Active, Socket, Data, State, Module, Option);
