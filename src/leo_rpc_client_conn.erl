@@ -46,7 +46,7 @@
          }).
 
 
--define(SOCKET_OPTS, [binary, {active, once}, {packet, line}, {reuseaddr, true}]).
+-define(SOCKET_OPTS, [binary, {active, once}, {packet, raw}, {reuseaddr, true}]).
 -define(RECV_TIMEOUT, 5000).
 
 
@@ -97,7 +97,7 @@ handle_cast(_Msg, State) ->
 
 handle_info({tcp, Socket, Bs}, State) ->
     Res = recv(Socket, Bs),
-    inet:setopts(Socket, [{active, once},{packet, line}]),
+    inet:setopts(Socket, [{active, once}]),
     {noreply, handle_response(Res, State)};
 
 handle_info({tcp_error, _Socket, _Reason}, State) ->
@@ -228,29 +228,45 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
 %%
 -spec(recv(pid(), binary()) ->
       any() | {error, any()}).
+recv(Socket, Bin) ->
+    Size = byte_size(Bin),
+    recv(Socket, Bin, Size).
+
+recv(Socket, Bin, GotSize) when GotSize < 8 ->
+    WantSize = 8,
+    case gen_tcp:recv(Socket, WantSize - GotSize, ?RECV_TIMEOUT) of
+        {ok, Rest} ->
+            recv(Socket, <<Bin/binary, Rest/binary>>, 8);
+        _ ->
+            {error, {invalid_data_length, GotSize}}
+    end;
 recv(Socket, << "*",
                 Type:?BLEN_TYPE_LEN/binary,
-                BodyLen:?BLEN_BODY_LEN/integer, "\r\n" >>) ->
-    inet:setopts(Socket, [{packet, raw}]),
-    case gen_tcp:recv(Socket, (BodyLen + 2), ?RECV_TIMEOUT) of
-        {ok, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>} ->
-            case Type of
-                ?BIN_ORG_TYPE_BIN ->
-                    << RetBin:Len/binary, "\r\n\r\n" >> = Rest,
-                    RetBin;
-                ?BIN_ORG_TYPE_TERM ->
-                    << Term:Len/binary, "\r\n\r\n" >> = Rest,
-                    binary_to_term(Term);
-                ?BIN_ORG_TYPE_TUPLE ->
-                    recv_1(Len, Rest, []);
+                BodyLen:?BLEN_BODY_LEN/integer, "\r\n", Rest/binary >>, Size) ->
+    GotSize = byte_size(Rest),
+    WantSize = BodyLen + 2 - GotSize,
+    case WantSize of
+        0 ->
+            recv_0(Type, <<Rest/binary>>);
+        RecvByte ->
+            case gen_tcp:recv(Socket, RecvByte, ?RECV_TIMEOUT) of
+                {ok, Rest2} ->
+                    recv_0(Type, <<Rest/binary, Rest2/binary>>);
                 _ ->
-                    {error, {invalid_root_type, Type}}
-            end;
-        _ ->
-            {error, {invalid_data_length, BodyLen}}
-    end;
-recv(_Socket, _InvalidBlock) ->
-    {error, {invalid_header, _InvalidBlock}}.
+                    {error, {invalid_data_length, Size}}
+            end
+    end.
+
+recv_0(?BIN_ORG_TYPE_BIN, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>) ->
+    << RetBin:Len/binary, "\r\n\r\n" >> = Rest,
+    RetBin;
+recv_0(?BIN_ORG_TYPE_TERM, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>) ->
+    << Term:Len/binary, "\r\n\r\n" >> = Rest,
+    binary_to_term(Term);
+recv_0(?BIN_ORG_TYPE_TUPLE, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>) ->
+    recv_1(Len, Rest, []);
+recv_0(InvalidType, _Rest) ->
+    {error, {invalid_root_type, InvalidType}}.
 
 recv_1(_, <<"\r\n">>, Acc) ->
     list_to_tuple(Acc);

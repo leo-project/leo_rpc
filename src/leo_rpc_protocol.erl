@@ -132,8 +132,12 @@ handle_call_1(Socket, ModMethodLen) ->
 %% @doc Retrieve the 3rd line
 %% @private
 handle_call_2(Socket, RPCInfo) ->
-    ok = inet:setopts(Socket, [{packet, line}]),
-    case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
+    %% `line` mode can be broken in case of including LF/CRLF in "_ParamsLen/BodyLen"
+    %% so we MUST use `raw` mode
+    ok = inet:setopts(Socket, [{packet, raw}]),
+    case gen_tcp:recv(Socket, 7, ?TIMEOUT) of
+    %ok = inet:setopts(Socket, [{packet, line}]),
+    %case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
         %% Retrieve the 3nd line
         {ok, << _ParamsLen:?BLEN_PARAM_LEN,
                 BodyLen:?BLEN_BODY_LEN, "\r\n" >>} ->
