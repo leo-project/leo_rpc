@@ -88,27 +88,33 @@ init(_) ->
 %%    "/r/n" >>
 %%
 handle_call(Socket, Data, State) ->
-    Reply = case Data of
-                << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, "\r\n" >> ->
-                    case handle_call_1(Socket, ModMethodLen) of
-                        {ok, #rpc_info{module = Mod,
-                                       method = Method,
-                                       params = Args}} ->
-                            Ret = case catch erlang:apply(Mod, Method, Args) of
-                                      {'EXIT', Cause} ->
-                                          {error, Cause};
-                                      Term ->
-                                          Term
-                                  end,
-                            result_to_binary(Ret);
-                        {error,_Cause} ->
-                            ?RET_ERROR
-                    end;
-                _ ->
-                    ?RET_ERROR
-            end,
-    {reply, Reply, State}.
-
+    case Data of
+        << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, "\r\n" >> ->
+            case handle_call_1(Socket, ModMethodLen) of
+                {ok, #rpc_info{module = Mod,
+                               method = Method,
+                               params = Args}} ->
+                    Ret = case catch erlang:apply(Mod, Method, Args) of
+                              {'EXIT', Cause} ->
+                                  {error, Cause};
+                              Term ->
+                                  Term
+                          end,
+                    {reply, result_to_binary(Ret), State};
+                {error, Cause} ->
+                    error_logger:warning_msg(
+                        "~p,~p,~p,~p~n",
+                        [{module, ?MODULE_STRING}, {function, "handle_call/3"},
+                        {line, ?LINE}, {body, Cause}]),
+                    {close, State}
+            end;
+        _InvalidBlock ->
+            error_logger:warning_msg(
+                "~p,~p,~p,~p~n",
+                [{module, ?MODULE_STRING}, {function, "handle_call/3"},
+                {line, ?LINE}, {body, _InvalidBlock}]),
+            {close, State}
+    end.
 
 %% @doc Retrieve the 2nd line
 %% @private
@@ -119,8 +125,8 @@ handle_call_1(Socket, ModMethodLen) ->
             {Mod, Method} = binary_to_term(ModMethodBin),
             handle_call_2(Socket, #rpc_info{module = Mod,
                                             method = Method});
-        _ ->
-            {error, invalid_format}
+        _InvalidBlock ->
+            {error, {invalid_root_header, _InvalidBlock}}
     end.
 
 %% @doc Retrieve the 3rd line
@@ -132,8 +138,8 @@ handle_call_2(Socket, RPCInfo) ->
         {ok, << _ParamsLen:?BLEN_PARAM_LEN,
                 BodyLen:?BLEN_BODY_LEN, "\r\n" >>} ->
             handle_call_3(Socket, BodyLen, RPCInfo);
-        _ ->
-            {error, invalid_format}
+        _InvalidBlock ->
+            {error, {invalid_param_header, _InvalidBlock}}
     end.
 
 
@@ -149,8 +155,8 @@ handle_call_3(Socket, BodyLen, RPCInfo) ->
                       Error ->
                           Error
                   end;
-              _ ->
-                  {error, invalid_format}
+              _Error ->
+                  {error, {receive_error, _Error}}
           end,
     ok = inet:setopts(Socket, [{packet, line}]),
     Ret.
@@ -200,7 +206,7 @@ param_to_binary(Mod, Method, Args) ->
 %% @doc Convert from binary to param
 %% @private
 -spec(binary_to_param(binary(), list()) ->
-             {ok, list()} | {error, invalid_format}).
+      {ok, list()} | {error, any()}).
 binary_to_param(?CRLF, Acc) ->
     {ok, lists:reverse(Acc)};
 binary_to_param(<< L:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, Acc) ->
@@ -211,17 +217,17 @@ binary_to_param(<< L:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, Acc) ->
                     case Type of
                         ?BIN_ORG_TYPE_TERM -> binary_to_param(Rest2, [binary_to_term(Param)|Acc]);
                         ?BIN_ORG_TYPE_BIN  -> binary_to_param(Rest2, [Param|Acc]);
-                        _ ->
-                            {error, invalid_format}
+                        _InvalidBlock ->
+                            {error, {invalid_root_type, _InvalidBlock}}
                     end;
-                _ ->
-                    {error, invalid_format}
+                _InvalidBlock ->
+                    {error, {invalid_param_body, _InvalidBlock}}
             end;
-        _ ->
-            {error, invalid_format}
+        _InvalidBlock ->
+            {error, {invalid_param_header, _InvalidBlock}}
     end;
-binary_to_param(_Bin,_) ->
-    {error, invalid_format}.
+binary_to_param(_InvalidBlock,_) ->
+    {error, {invalid_body, _InvalidBlock}}.
 
 
 %% @doc Convert from result-value to binary

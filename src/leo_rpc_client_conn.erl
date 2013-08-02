@@ -227,7 +227,7 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
 %%    >>
 %%
 -spec(recv(pid(), binary()) ->
-             any() | {error, invalid_format}).
+      any() | {error, any()}).
 recv(Socket, << "*",
                 Type:?BLEN_TYPE_LEN/binary,
                 BodyLen:?BLEN_BODY_LEN/integer, "\r\n" >>) ->
@@ -244,13 +244,13 @@ recv(Socket, << "*",
                 ?BIN_ORG_TYPE_TUPLE ->
                     recv_1(Len, Rest, []);
                 _ ->
-                    {error, invalid_format}
+                    {error, {invalid_root_type, Type}}
             end;
         _ ->
-            {error, invalid_format}
+            {error, {invalid_data_length, BodyLen}}
     end;
-recv(_Socket,_) ->
-    {error, invalid_format}.
+recv(_Socket, _InvalidBlock) ->
+    {error, {invalid_header, _InvalidBlock}}.
 
 recv_1(_, <<"\r\n">>, Acc) ->
     list_to_tuple(Acc);
@@ -260,8 +260,8 @@ recv_1(Len, << "M\r\n", Rest1/binary >>, Acc) ->
     recv_2(Len, ?BIN_ORG_TYPE_TERM, Rest1, Acc);
 recv_1(Len, << "T\r\n", Rest1/binary >>, Acc) ->
     recv_2(Len, ?BIN_ORG_TYPE_TUPLE, Rest1, Acc);
-recv_1(_,_,_) ->
-    {error, invalid_format}.
+recv_1(_,_InvalidBlock,_) ->
+    {error, {invalid_tuple_type, _InvalidBlock}}.
 
 recv_2(Len, Type, Rest1, Acc) ->
     case (byte_size(Rest1) > Len) of
@@ -283,9 +283,7 @@ recv_2(Len, Type, Rest1, Acc) ->
                    end,
             recv_1(Len2, Rest4, Acc1);
         false ->
-            {error, invalid_format}
+            {error, {invalid_data_length, Len, Type, Rest1}}
     end.
-
-
 
 
