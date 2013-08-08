@@ -115,18 +115,18 @@ nb_yield(Key) ->
     nb_yield(Key, ?DEF_TIMEOUT).
 
 -spec(nb_yield(pid(), pos_integer()) ->
-             {value, any()} | timeout | {badrpc, any()}).
+             {value, any()} | timeout).
 nb_yield(Key, Timeout) when is_pid(Key) ->
     case erlang:is_process_alive(Key) of
         false ->
-            {badrpc, invalid_key};
+            {value, {badrpc, invalid_key}};
         true ->
             erlang:send(Key, {get, self()}),
             receive
                 {badrpc, timeout} ->
                     timeout;
                 {badrpc, Cause} ->
-                    {badrpc, Cause};
+                    {value, {badrpc, Cause}};
                 Ret ->
                     {value, Ret}
             after Timeout ->
@@ -134,7 +134,7 @@ nb_yield(Key, Timeout) when is_pid(Key) ->
             end
     end;
 nb_yield(_,_) ->
-    {badrpc, invalid_key}.
+    {value, {badrpc, invalid_key}}.
 
 
 %% @doc Tries to set up a connection to Node.
