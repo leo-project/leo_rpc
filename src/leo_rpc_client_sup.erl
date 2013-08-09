@@ -74,25 +74,23 @@ start_child(Host, IP, Port, ReconnectSleep) ->
     case whereis(Id) of
         undefined ->
             WorkerArgs = [Host, IP, Port, ReconnectSleep],
-            ChildSpec  = {Id, {leo_pod_sup, start_link,
-                               [Id,
-                                ?DEF_CLIENT_CONN_POOL_SIZE,
-                                ?DEF_CLIENT_CONN_BUF_SIZE,
-                                leo_rpc_client_conn, WorkerArgs]},
-                          permanent, ?SHUTDOWN_WAITING_TIME,
-                          supervisor, [leo_pod_sup]},
-
-            case supervisor:start_child(?MODULE, ChildSpec) of
-                {ok, _Pid} ->
-                    [Child|_] = supervisor:which_children(_Pid),
-                    ManagerRef = element(1, Child),
-
+            InitFun = fun(ManagerRef) ->
                     true = ets:insert(?TBL_RPC_CONN_INFO,
                                       {Host, #rpc_conn{host = Host,
                                                        ip = IP,
                                                        port = Port,
                                                        workers = ?DEF_CLIENT_CONN_POOL_SIZE,
-                                                       manager_ref = ManagerRef}}),
+                                                       manager_ref = ManagerRef}})
+            end,
+            ChildSpec  = {Id, {leo_pod_sup, start_link,
+                               [Id,
+                                ?DEF_CLIENT_CONN_POOL_SIZE,
+                                ?DEF_CLIENT_CONN_BUF_SIZE,
+                                leo_rpc_client_conn, WorkerArgs, InitFun]},
+                          permanent, ?SHUTDOWN_WAITING_TIME,
+                          supervisor, [leo_pod_sup]},
+            case supervisor:start_child(?MODULE, ChildSpec) of
+                {ok, _Pid} ->
                     ok;
                 {error, Cause} ->
                     error_logger:warning_msg(
