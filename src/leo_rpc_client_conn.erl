@@ -97,9 +97,13 @@ handle_cast(_Msg, State) ->
 
 handle_info({tcp, Socket, Bs}, State) ->
     Res = recv(Socket, Bs),
-    inet:setopts(Socket, [{active, once}]),
-    {noreply, handle_response(Res, State)};
-
+    case Res of
+        {recv_error, Cause} ->
+            {stop, Cause, State};
+        _Other ->
+            inet:setopts(Socket, [{active, once}]),
+            {noreply, handle_response(Res, State)}
+    end;
 handle_info({tcp_error, _Socket, _Reason}, State) ->
     {noreply, State};
 
@@ -238,7 +242,7 @@ recv(Socket, Bin, GotSize) when GotSize < 8 ->
         {ok, Rest} ->
             recv(Socket, <<Bin/binary, Rest/binary>>, 8);
         _ ->
-            {error, {invalid_data_length, GotSize}}
+            {recv_error, {invalid_data_length, GotSize}}
     end;
 recv(Socket, << "*",
                 Type:?BLEN_TYPE_LEN/binary,
@@ -248,12 +252,14 @@ recv(Socket, << "*",
     case WantSize of
         0 ->
             recv_0(Type, <<Rest/binary>>);
+        RecvByte when RecvByte < 0 ->
+            {recv_error, {invalid_data_length, RecvByte}};
         RecvByte ->
             case gen_tcp:recv(Socket, RecvByte, ?RECV_TIMEOUT) of
                 {ok, Rest2} ->
                     recv_0(Type, <<Rest/binary, Rest2/binary>>);
                 _ ->
-                    {error, {invalid_data_length, Size}}
+                    {recv_error, {invalid_data_length, Size}}
             end
     end.
 
@@ -266,7 +272,7 @@ recv_0(?BIN_ORG_TYPE_TERM, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary 
 recv_0(?BIN_ORG_TYPE_TUPLE, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>) ->
     recv_1(Len, Rest, []);
 recv_0(InvalidType, _Rest) ->
-    {error, {invalid_root_type, InvalidType}}.
+    {recv_error, {invalid_root_type, InvalidType}}.
 
 recv_1(_, <<"\r\n">>, Acc) ->
     list_to_tuple(Acc);
@@ -277,7 +283,7 @@ recv_1(Len, << "M\r\n", Rest1/binary >>, Acc) ->
 recv_1(Len, << "T\r\n", Rest1/binary >>, Acc) ->
     recv_2(Len, ?BIN_ORG_TYPE_TUPLE, Rest1, Acc);
 recv_1(_,_InvalidBlock,_) ->
-    {error, {invalid_tuple_type, _InvalidBlock}}.
+    {recv_error, {invalid_tuple_type, _InvalidBlock}}.
 
 recv_2(Len, Type, Rest1, Acc) ->
     case (byte_size(Rest1) > Len) of
@@ -299,7 +305,7 @@ recv_2(Len, Type, Rest1, Acc) ->
                    end,
             recv_1(Len2, Rest4, Acc1);
         false ->
-            {error, {invalid_data_length, Len, Type, Rest1}}
+            {recv_error, {invalid_data_length, Len, Type, Rest1}}
     end.
 
 
