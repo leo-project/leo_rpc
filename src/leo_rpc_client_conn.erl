@@ -42,6 +42,7 @@
           port   :: integer(),
           socket :: reference()|undefined,
           reconnect_sleep :: integer(),
+          buf    :: binary(),
           queue = [] :: list()
          }).
 
@@ -70,6 +71,7 @@ init([Host, IP, Port, ReconnectSleepInterval]) ->
                    ip = IP,
                    port = Port,
                    reconnect_sleep = ReconnectSleepInterval,
+                   buf = <<>>,
                    queue = []},
     case connect(State) of
         {ok, NewState} ->
@@ -95,14 +97,15 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 
-handle_info({tcp, Socket, Bs}, State) ->
-    Res = recv(Socket, Bs),
+handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
+    Res = recv(Socket, <<Buf/binary, Bs/binary>>),
     case Res of
-        {recv_error, Cause} ->
+        {error, Cause} ->
             {stop, Cause, State};
-        _Other ->
+        {value, Value, Rest} ->
             inet:setopts(Socket, [{active, once}]),
-            {noreply, handle_response(Res, State)}
+            NewState = State#state{buf = Rest},
+            {noreply, handle_response(Value, NewState)}
     end;
 handle_info({tcp_error, _Socket, _Reason}, State) ->
     {noreply, State};
@@ -231,7 +234,7 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
 %%    >>
 %%
 -spec(recv(pid(), binary()) ->
-      any() | {error, any()}).
+      {value, any(), binary()} | {error, any()}).
 recv(Socket, Bin) ->
     Size = byte_size(Bin),
     recv(Socket, Bin, Size).
@@ -242,50 +245,50 @@ recv(Socket, Bin, GotSize) when GotSize < 8 ->
         {ok, Rest} ->
             recv(Socket, <<Bin/binary, Rest/binary>>, 8);
         _ ->
-            {recv_error, {invalid_data_length, GotSize}}
+            {error, {invalid_data_length, GotSize}}
     end;
 recv(Socket, << "*",
                 Type:?BLEN_TYPE_LEN/binary,
                 BodyLen:?BLEN_BODY_LEN/integer, "\r\n", Rest/binary >>, Size) ->
     GotSize = byte_size(Rest),
-    WantSize = BodyLen + 2 - GotSize,
+    NeedSize = BodyLen + 2,
+    WantSize = NeedSize - GotSize,
     case WantSize of
-        0 ->
-            recv_0(Type, <<Rest/binary>>);
-        RecvByte when RecvByte < 0 ->
-            {recv_error, {invalid_data_length, RecvByte}};
+        RecvByte when RecvByte =< 0 ->
+            <<TargetBin:NeedSize/binary, NextBin/binary>> = Rest, 
+            recv_0(Type, TargetBin, NextBin);
         RecvByte ->
             case gen_tcp:recv(Socket, RecvByte, ?RECV_TIMEOUT) of
                 {ok, Rest2} ->
-                    recv_0(Type, <<Rest/binary, Rest2/binary>>);
+                    recv_0(Type, <<Rest/binary, Rest2/binary>>, <<>>);
                 _ ->
-                    {recv_error, {invalid_data_length, Size}}
+                    {error, {invalid_data_length, Size}}
             end
     end.
 
-recv_0(?BIN_ORG_TYPE_BIN, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>) ->
+recv_0(?BIN_ORG_TYPE_BIN, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, NextBin) ->
     << RetBin:Len/binary, "\r\n\r\n" >> = Rest,
-    RetBin;
-recv_0(?BIN_ORG_TYPE_TERM, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>) ->
+    {value, RetBin, NextBin};
+recv_0(?BIN_ORG_TYPE_TERM, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, NextBin) ->
     << Term:Len/binary, "\r\n\r\n" >> = Rest,
-    binary_to_term(Term);
-recv_0(?BIN_ORG_TYPE_TUPLE, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>) ->
-    recv_1(Len, Rest, []);
-recv_0(InvalidType, _Rest) ->
-    {recv_error, {invalid_root_type, InvalidType}}.
+    {value, binary_to_term(Term), NextBin};
+recv_0(?BIN_ORG_TYPE_TUPLE, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, NextBin) ->
+    recv_1(Len, Rest, [], NextBin);
+recv_0(InvalidType, _Rest, _NextBin) ->
+    {error, {invalid_root_type, InvalidType}}.
 
-recv_1(_, <<"\r\n">>, Acc) ->
-    list_to_tuple(Acc);
-recv_1(Len, << "B\r\n", Rest1/binary >>, Acc) ->
-    recv_2(Len, ?BIN_ORG_TYPE_BIN, Rest1, Acc);
-recv_1(Len, << "M\r\n", Rest1/binary >>, Acc) ->
-    recv_2(Len, ?BIN_ORG_TYPE_TERM, Rest1, Acc);
-recv_1(Len, << "T\r\n", Rest1/binary >>, Acc) ->
-    recv_2(Len, ?BIN_ORG_TYPE_TUPLE, Rest1, Acc);
-recv_1(_,_InvalidBlock,_) ->
-    {recv_error, {invalid_tuple_type, _InvalidBlock}}.
+recv_1(_, <<"\r\n">>, Acc, NextBin) ->
+    {value, list_to_tuple(Acc), NextBin};
+recv_1(Len, << "B\r\n", Rest1/binary >>, Acc, NextBin) ->
+    recv_2(Len, ?BIN_ORG_TYPE_BIN, Rest1, Acc, NextBin);
+recv_1(Len, << "M\r\n", Rest1/binary >>, Acc, NextBin) ->
+    recv_2(Len, ?BIN_ORG_TYPE_TERM, Rest1, Acc, NextBin);
+recv_1(Len, << "T\r\n", Rest1/binary >>, Acc, NextBin) ->
+    recv_2(Len, ?BIN_ORG_TYPE_TUPLE, Rest1, Acc, NextBin);
+recv_1(_,_InvalidBlock,_,_NextBin) ->
+    {error, {invalid_tuple_type, _InvalidBlock}}.
 
-recv_2(Len, Type, Rest1, Acc) ->
+recv_2(Len, Type, Rest1, Acc, NextBin) ->
     case (byte_size(Rest1) > Len) of
         true ->
             << Item:Len/binary, "\r\n", Rest2/binary >> = Rest1,
@@ -303,9 +306,9 @@ recv_2(Len, Type, Rest1, Acc) ->
                        _ ->
                            [binary_to_term(Item)|Acc]
                    end,
-            recv_1(Len2, Rest4, Acc1);
+            recv_1(Len2, Rest4, Acc1, NextBin);
         false ->
-            {recv_error, {invalid_data_length, Len, Type, Rest1}}
+            {error, {invalid_data_length, Len, Type, Rest1}}
     end.
 
 
