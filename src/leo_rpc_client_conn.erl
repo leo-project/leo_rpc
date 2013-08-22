@@ -43,13 +43,14 @@
           socket :: reference()|undefined,
           reconnect_sleep :: integer(),
           buf    :: binary(),
+          nreq   :: pos_integer(),
           queue = [] :: list()
          }).
 
 
 -define(SOCKET_OPTS, [binary, {active, once}, {packet, raw}, {reuseaddr, true}]).
 -define(RECV_TIMEOUT, 5000).
-
+-define(MAX_REQ_PER_CON, 100).
 
 %% ===================================================================
 %% APIs
@@ -71,6 +72,7 @@ init([Host, IP, Port, ReconnectSleepInterval]) ->
                    ip = IP,
                    port = Port,
                    reconnect_sleep = ReconnectSleepInterval,
+                   nreq = 0,
                    buf = <<>>,
                    queue = []},
     case connect(State) of
@@ -176,9 +178,17 @@ exec(Req, From, #state{socket = Socket} = State) ->
 %% @private
 -spec(handle_response(binary(), #state{}) ->
              #state{}).
-handle_response(Data, #state{queue = Queue} = State) ->
+handle_response(Data, #state{queue  = Queue, 
+                             socket = Socket,
+                             nreq   = NumReq} = State) ->
     NewQueue = reply(Data, Queue),
-    State#state{queue = NewQueue}.
+    case NumReq of
+        ?MAX_REQ_PER_CON ->
+            catch gen_tcp:close(Socket),
+            State#state{queue = NewQueue, socket = undefined, nreq = 0};
+        _ ->
+            State#state{queue = NewQueue, nreq = NumReq + 1}
+    end.
 
 
 %% @doc: Send data to the 1st-client in the queue
