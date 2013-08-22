@@ -218,15 +218,17 @@ exec(Node, ParamsBin, Timeout) ->
 exec_1(PodName, ParamsBin, Timeout) ->
     case leo_pod:checkout(PodName) of
         {ok, ServerRef} ->
-            Ret2 = case catch gen_server:call(
-                                ServerRef, {request, ParamsBin}, Timeout) of
-                       {'EXIT', Cause} ->
-                           {error, Cause};
-                       Ret1 ->
-                           Ret1
-                   end,
-            leo_pod:checkin_async(PodName, ServerRef),
-            Ret2;
+            try
+                case catch gen_server:call(
+                     ServerRef, {request, ParamsBin}, Timeout) of
+                    {'EXIT', Cause} ->
+                        {error, Cause};
+                    Ret ->
+                        Ret
+                end
+            after
+                leo_pod:checkin_async(PodName, ServerRef)
+            end;
         _ ->
             {error, []}
     end.
