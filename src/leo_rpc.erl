@@ -230,7 +230,9 @@ exec_1(PodName, ParamsBin, Timeout) ->
                 leo_pod:checkin_async(PodName, ServerRef)
             end;
         _ ->
-            {error, []}
+            %% retry
+            timer:sleep(50),
+            exec_1(PodName, ParamsBin, Timeout)
     end.
 
 
