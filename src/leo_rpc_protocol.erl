@@ -32,7 +32,7 @@
 -export([param_to_binary/3, result_to_binary/1]).
 
 -undef(TIMEOUT).
--define(TIMEOUT, 5000).
+-define(TIMEOUT, 10000).
 
 
 %% ===================================================================
