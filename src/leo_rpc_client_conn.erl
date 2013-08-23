@@ -44,7 +44,7 @@
           reconnect_sleep :: integer(),
           buf    :: binary(),
           nreq   :: pos_integer(),
-          queue = [] :: list()
+          pid_from :: pid()|undefined
          }).
 
 
@@ -73,8 +73,7 @@ init([Host, IP, Port, ReconnectSleepInterval]) ->
                    port = Port,
                    reconnect_sleep = ReconnectSleepInterval,
                    nreq = 0,
-                   buf = <<>>,
-                   queue = []},
+                   buf = <<>>},
     case connect(State) of
         {ok, NewState} ->
             {ok, NewState};
@@ -120,7 +119,7 @@ handle_info({tcp_closed, _Socket}, State) ->
             Self = self(),
             spawn(fun() -> reconnect_loop(Self, State) end)
     end,
-    {noreply, State#state{socket = undefined, queue = []}};
+    {noreply, State#state{socket = undefined, pid_from = undefined}};
 
 handle_info({connection_ready, Socket}, #state{socket = undefined} = State) ->
     {noreply, State#state{socket = Socket}};
@@ -155,8 +154,7 @@ exec(Req, From, #state{socket = undefined} = State) ->
         {ok, #state{socket = Socket} = State1} ->
             case gen_tcp:send(Socket, Req) of
                 ok ->
-                    NewQueue = [From|State1#state.queue],
-                    {noreply, State1#state{queue = NewQueue}};
+                    {noreply, State1#state{pid_from = From}};
                 {error, Reason} ->
                     {reply, {error, Reason}, State1}
             end;
@@ -167,8 +165,7 @@ exec(Req, From, #state{socket = undefined} = State) ->
 exec(Req, From, #state{socket = Socket} = State) ->
     case gen_tcp:send(Socket, Req) of
         ok ->
-            NewQueue = [From|State#state.queue],
-            {noreply, State#state{queue = NewQueue}};
+            {noreply, State#state{pid_from = From}};
         {error, Reason} ->
             {reply, {error, Reason}, State}
     end.
@@ -178,33 +175,30 @@ exec(Req, From, #state{socket = Socket} = State) ->
 %% @private
 -spec(handle_response(binary(), #state{}) ->
              #state{}).
-handle_response(Data, #state{queue  = Queue, 
+handle_response(Data, #state{pid_from = From, 
                              socket = Socket,
                              nreq   = NumReq} = State) ->
-    NewQueue = reply(Data, Queue),
+    reply(Data, From),
     case NumReq of
         ?MAX_REQ_PER_CON ->
             catch gen_tcp:close(Socket),
-            State#state{queue = NewQueue, socket = undefined, nreq = 0};
+            State#state{pid_from = undefined, socket = undefined, nreq = 0};
         _ ->
-            State#state{queue = NewQueue, nreq = NumReq + 1}
+            State#state{pid_from = undefined, nreq = NumReq + 1}
     end.
 
 
-%% @doc: Send data to the 1st-client in the queue
+%% @doc: Send data to the client
 %% @private
-reply(_, []) ->
+reply(Value, undefined) ->
     error_logger:warning_msg(
       "~p,~p,~p,~p~n",
       [{module, ?MODULE_STRING}, {function, "reply/2"},
-       {line, ?LINE}, {body, "Nothing in queue"}]),
-    throw(empty_queue);
+       {line, ?LINE}, {body, Value}]),
+    throw(empty_client);
 
-reply(Value, Queue) ->
-    [From|NewQueue] = lists:reverse(Queue),
-    gen_server:reply(From, {ok, Value}),
-    NewQueue.
-
+reply(Value, From) ->
+    gen_server:reply(From, {ok, Value}).
 
 %% @doc: Connect to server
 %% @private
