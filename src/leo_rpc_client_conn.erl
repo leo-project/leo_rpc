@@ -194,8 +194,7 @@ reply(Value, undefined) ->
     error_logger:warning_msg(
       "~p,~p,~p,~p~n",
       [{module, ?MODULE_STRING}, {function, "reply/2"},
-       {line, ?LINE}, {body, Value}]),
-    throw(no_client_to_respond);
+       {line, ?LINE}, {body, Value}]);
 
 reply(Value, From) ->
     gen_server:reply(From, {ok, Value}).
