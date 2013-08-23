@@ -119,7 +119,7 @@ handle_info({tcp_closed, _Socket}, State) ->
             Self = self(),
             spawn(fun() -> reconnect_loop(Self, State) end)
     end,
-    {noreply, State#state{socket = undefined, pid_from = undefined}};
+    {noreply, State#state{socket = undefined}};
 
 handle_info({connection_ready, Socket}, #state{socket = undefined} = State) ->
     {noreply, State#state{socket = Socket}};
@@ -195,7 +195,7 @@ reply(Value, undefined) ->
       "~p,~p,~p,~p~n",
       [{module, ?MODULE_STRING}, {function, "reply/2"},
        {line, ?LINE}, {body, Value}]),
-    throw(empty_client);
+    throw(no_client_to_respond);
 
 reply(Value, From) ->
     gen_server:reply(From, {ok, Value}).
