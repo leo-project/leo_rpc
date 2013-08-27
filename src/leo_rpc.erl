@@ -31,6 +31,7 @@
          call/4, call/5, call/6,
          multicall/4, multicall/5,
          nb_yield/1, nb_yield/2,
+         cast/4,
          ping/1, status/0, node/0, nodes/0
         ]).
 
@@ -135,6 +136,16 @@ nb_yield(Key, Timeout) when is_pid(Key) ->
     end;
 nb_yield(_,_) ->
     {value, {badrpc, invalid_key}}.
+
+
+%% @doc No response is delivered and the calling process is not suspended
+%%      until the evaluation is complete, as is the case with call/4,5.
+%%
+-spec(cast(atom(), module(), atom(), list(term())) ->
+             true).
+cast(Node, Module, Method, Args) ->
+    _ = spawn(?MODULE, call, [Node, Module, Method, Args]),
+    true.
 
 
 %% @doc Tries to set up a connection to Node.

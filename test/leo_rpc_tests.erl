@@ -62,9 +62,9 @@ basic_(Node) ->
     Param1 = [{'a',1},{'b',2},{'c',3}],
     Param2 = <<"123">>,
 
-    ?assertEqual(1,      leo_rpc:call(Node, Mod1, Fun1, ['a', Param1, Param2 ])),
-    ?assertEqual(2,      leo_rpc:call(Node, Mod1, Fun1, ['b', Param1, Param2 ])),
-    ?assertEqual(Param2, leo_rpc:call(Node, Mod1, Fun1, ['d', Param1, Param2 ])),
+    ?assertEqual(1,      leo_rpc:call(Node, Mod1, Fun1, ['a', Param1, Param2])),
+    ?assertEqual(2,      leo_rpc:call(Node, Mod1, Fun1, ['b', Param1, Param2])),
+    ?assertEqual(Param2, leo_rpc:call(Node, Mod1, Fun1, ['d', Param1, Param2])),
     ?assertEqual(true, is_integer(leo_rpc:call(Node, 'leo_date', 'clock', []))),
 
     %% "leo_rpc:async_call/4"
@@ -87,6 +87,8 @@ basic_(Node) ->
     ?assertEqual({[Param2,Param2],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['d', Param1, Param2])),
     ?assertMatch({[_,_],[]}, leo_rpc:multicall(Nodes, 'leo_date', 'clock', [])),
 
+    %% "leo_rpc:cast/4"
+    ?assertEqual(true, leo_rpc:cast(Node, Mod1, Fun1, ['a', Param1, Param2])),
     ok.
 
 tuple_(Node) ->
