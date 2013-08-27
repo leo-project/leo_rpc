@@ -23,15 +23,19 @@
 %% @doc: data parse related definitions
 %%
 -define(CRLF, <<"\r\n">>).
+-define(CRLF_STR, "\r\n").
+-define(CRLF_CRLF_STR, "\r\n\r\n").
+
 -define(BIN_ORG_TYPE_BIN,   <<"B">>).
 -define(BIN_ORG_TYPE_TERM,  <<"M">>).
 -define(BIN_ORG_TYPE_TUPLE, <<"T">>).
 
--define(BLEN_MOD_METHOD_LEN,  8).
--define(BLEN_TYPE_LEN,        1).
--define(BLEN_PARAM_LEN,       8).
--define(BLEN_PARAM_TERM,     32).
--define(BLEN_BODY_LEN,       32).
+-define(BLEN_MOD_METHOD_LEN,     8).
+-define(BLEN_TYPE_LEN,           1).
+-define(BLEN_PARAM_LEN,          8).
+-define(BLEN_PARAM_TERM,        32).
+-define(BLEN_BODY_LEN,          32).
+-define(BLEN_LEN_TYPE_WITH_BODY, 8).
 -define(RET_ERROR, <<"+ERROR\r\n">>).
 
 

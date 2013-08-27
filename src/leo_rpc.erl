@@ -220,7 +220,7 @@ exec_1(PodName, ParamsBin, Timeout) ->
         {ok, ServerRef} ->
             try
                 case catch gen_server:call(
-                     ServerRef, {request, ParamsBin}, Timeout) of
+                             ServerRef, {request, ParamsBin}, Timeout) of
                     {'EXIT', Cause} ->
                         {error, Cause};
                     Ret ->

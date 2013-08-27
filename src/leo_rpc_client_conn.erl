@@ -175,7 +175,7 @@ exec(Req, From, #state{socket = Socket} = State) ->
 %% @private
 -spec(handle_response(binary(), #state{}) ->
              #state{}).
-handle_response(Data, #state{pid_from = From, 
+handle_response(Data, #state{pid_from = From,
                              socket = Socket,
                              nreq   = NumReq} = State) ->
     reply(Data, From),
@@ -237,28 +237,29 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
 %%    >>
 %%
 -spec(recv(pid(), binary()) ->
-      {value, any(), binary()} | {error, any()}).
+             {value, any(), binary()} | {error, any()}).
 recv(Socket, Bin) ->
     Size = byte_size(Bin),
     recv(Socket, Bin, Size).
 
-recv(Socket, Bin, GotSize) when GotSize < 8 ->
-    WantSize = 8,
+recv(Socket, Bin, GotSize) when GotSize < ?BLEN_LEN_TYPE_WITH_BODY ->
+    WantSize = ?BLEN_LEN_TYPE_WITH_BODY,
     case gen_tcp:recv(Socket, WantSize - GotSize, ?RECV_TIMEOUT) of
         {ok, Rest} ->
-            recv(Socket, <<Bin/binary, Rest/binary>>, 8);
+            recv(Socket, <<Bin/binary, Rest/binary>>, WantSize);
         _ ->
             {error, {invalid_data_length, GotSize}}
     end;
-recv(Socket, << "*",
+
+recv(Socket, << $*,
                 Type:?BLEN_TYPE_LEN/binary,
-                BodyLen:?BLEN_BODY_LEN/integer, "\r\n", Rest/binary >>, Size) ->
+                BodyLen:?BLEN_BODY_LEN/integer, ?CRLF_STR, Rest/binary >>, Size) ->
     GotSize = byte_size(Rest),
     NeedSize = BodyLen + 2,
     WantSize = NeedSize - GotSize,
     case WantSize of
         RecvByte when RecvByte =< 0 ->
-            <<TargetBin:NeedSize/binary, NextBin/binary>> = Rest, 
+            <<TargetBin:NeedSize/binary, NextBin/binary>> = Rest,
             recv_0(Type, TargetBin, NextBin);
         RecvByte ->
             case gen_tcp:recv(Socket, RecvByte, ?RECV_TIMEOUT) of
@@ -269,35 +270,38 @@ recv(Socket, << "*",
             end
     end.
 
-recv_0(?BIN_ORG_TYPE_BIN, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, NextBin) ->
-    << RetBin:Len/binary, "\r\n\r\n" >> = Rest,
+
+recv_0(?BIN_ORG_TYPE_BIN, << Len:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest/binary >>, NextBin) ->
+    << RetBin:Len/binary, ?CRLF_CRLF_STR >> = Rest,
     {value, RetBin, NextBin};
-recv_0(?BIN_ORG_TYPE_TERM, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, NextBin) ->
-    << Term:Len/binary, "\r\n\r\n" >> = Rest,
+recv_0(?BIN_ORG_TYPE_TERM, << Len:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest/binary >>, NextBin) ->
+    << Term:Len/binary, ?CRLF_CRLF_STR >> = Rest,
     {value, binary_to_term(Term), NextBin};
-recv_0(?BIN_ORG_TYPE_TUPLE, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, NextBin) ->
+recv_0(?BIN_ORG_TYPE_TUPLE, << Len:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest/binary >>, NextBin) ->
     recv_1(Len, Rest, [], NextBin);
 recv_0(InvalidType, _Rest, _NextBin) ->
     {error, {invalid_root_type, InvalidType}}.
 
-recv_1(_, <<"\r\n">>, Acc, NextBin) ->
+
+recv_1(_, ?CRLF, Acc, NextBin) ->
     {value, list_to_tuple(Acc), NextBin};
-recv_1(Len, << "B\r\n", Rest1/binary >>, Acc, NextBin) ->
+recv_1(Len, << $B, ?CRLF_STR, Rest1/binary >>, Acc, NextBin) ->
     recv_2(Len, ?BIN_ORG_TYPE_BIN, Rest1, Acc, NextBin);
-recv_1(Len, << "M\r\n", Rest1/binary >>, Acc, NextBin) ->
+recv_1(Len, << $M, ?CRLF_STR, Rest1/binary >>, Acc, NextBin) ->
     recv_2(Len, ?BIN_ORG_TYPE_TERM, Rest1, Acc, NextBin);
-recv_1(Len, << "T\r\n", Rest1/binary >>, Acc, NextBin) ->
+recv_1(Len, << $T, ?CRLF_STR, Rest1/binary >>, Acc, NextBin) ->
     recv_2(Len, ?BIN_ORG_TYPE_TUPLE, Rest1, Acc, NextBin);
 recv_1(_,_InvalidBlock,_,_NextBin) ->
     {error, {invalid_tuple_type, _InvalidBlock}}.
 
+
 recv_2(Len, Type, Rest1, Acc, NextBin) ->
     case (byte_size(Rest1) > Len) of
         true ->
-            << Item:Len/binary, "\r\n", Rest2/binary >> = Rest1,
+            << Item:Len/binary, ?CRLF_STR, Rest2/binary >> = Rest1,
             {Len2, Rest4} =
                 case Rest2 of
-                    << Len1:?BLEN_PARAM_TERM/integer, "\r\n", Rest3/binary >> ->
+                    << Len1:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest3/binary >> ->
                         {Len1, Rest3};
                     _ ->
                         {0, Rest2}

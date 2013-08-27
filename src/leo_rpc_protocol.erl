@@ -89,7 +89,7 @@ init(_) ->
 %%
 handle_call(Socket, Data, State) ->
     case Data of
-        << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, "\r\n" >> ->
+        << $*, ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, ?CRLF_STR >> ->
             case handle_call_1(Socket, ModMethodLen) of
                 {ok, #rpc_info{module = Mod,
                                method = Method,
@@ -103,16 +103,16 @@ handle_call(Socket, Data, State) ->
                     {reply, result_to_binary(Ret), State};
                 {error, Cause} ->
                     error_logger:warning_msg(
-                        "~p,~p,~p,~p~n",
-                        [{module, ?MODULE_STRING}, {function, "handle_call/3"},
-                        {line, ?LINE}, {body, Cause}]),
+                      "~p,~p,~p,~p~n",
+                      [{module, ?MODULE_STRING}, {function, "handle_call/3"},
+                       {line, ?LINE}, {body, Cause}]),
                     {close, State}
             end;
         _InvalidBlock ->
             error_logger:warning_msg(
-                "~p,~p,~p,~p~n",
-                [{module, ?MODULE_STRING}, {function, "handle_call/3"},
-                {line, ?LINE}, {body, _InvalidBlock}]),
+              "~p,~p,~p,~p~n",
+              [{module, ?MODULE_STRING}, {function, "handle_call/3"},
+               {line, ?LINE}, {body, _InvalidBlock}]),
             {close, State}
     end.
 
@@ -121,7 +121,7 @@ handle_call(Socket, Data, State) ->
 handle_call_1(Socket, ModMethodLen) ->
     ok = inet:setopts(Socket, [{packet, raw}]),
     case gen_tcp:recv(Socket, (ModMethodLen + 2), ?TIMEOUT) of
-        {ok, << ModMethodBin:ModMethodLen/binary, "\r\n" >>} ->
+        {ok, << ModMethodBin:ModMethodLen/binary, ?CRLF_STR >>} ->
             {Mod, Method} = binary_to_term(ModMethodBin),
             handle_call_2(Socket, #rpc_info{module = Mod,
                                             method = Method});
@@ -136,11 +136,9 @@ handle_call_2(Socket, RPCInfo) ->
     %% so we MUST use `raw` mode
     ok = inet:setopts(Socket, [{packet, raw}]),
     case gen_tcp:recv(Socket, 7, ?TIMEOUT) of
-    %ok = inet:setopts(Socket, [{packet, line}]),
-    %case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
         %% Retrieve the 3nd line
         {ok, << _ParamsLen:?BLEN_PARAM_LEN,
-                BodyLen:?BLEN_BODY_LEN, "\r\n" >>} ->
+                BodyLen:?BLEN_BODY_LEN, ?CRLF_STR >>} ->
             handle_call_3(Socket, BodyLen, RPCInfo);
         _InvalidBlock ->
             {error, {invalid_param_header, _InvalidBlock}}
@@ -201,7 +199,7 @@ param_to_binary(Mod, Method, Args) ->
                                   Bin/binary, ?CRLF/binary >>
                        end, <<>>, Args),
     BodyLen = byte_size(Body),
-    << "*", ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, ?CRLF/binary,
+    << $*, ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, ?CRLF/binary,
        ModMethodBin/binary, ?CRLF/binary,
        ParamLen:?BLEN_PARAM_LEN/integer, BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>.
@@ -210,14 +208,14 @@ param_to_binary(Mod, Method, Args) ->
 %% @doc Convert from binary to param
 %% @private
 -spec(binary_to_param(binary(), list()) ->
-      {ok, list()} | {error, any()}).
+             {ok, list()} | {error, any()}).
 binary_to_param(?CRLF, Acc) ->
     {ok, lists:reverse(Acc)};
-binary_to_param(<< L:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>, Acc) ->
+binary_to_param(<< L:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest/binary >>, Acc) ->
     case Rest of
-        << Type:?BLEN_TYPE_LEN/binary,  "\r\n", Rest1/binary>> ->
+        << Type:?BLEN_TYPE_LEN/binary, ?CRLF_STR, Rest1/binary>> ->
             case Rest1 of
-                << Param:L/binary, "\r\n", Rest2/binary>> ->
+                << Param:L/binary, ?CRLF_STR, Rest2/binary>> ->
                     case Type of
                         ?BIN_ORG_TYPE_TERM -> binary_to_param(Rest2, [binary_to_term(Param)|Acc]);
                         ?BIN_ORG_TYPE_BIN  -> binary_to_param(Rest2, [Param|Acc]);
@@ -251,14 +249,14 @@ binary_to_param(_InvalidBlock,_) ->
 result_to_binary(Term) when is_tuple(Term) ->
     {ok, Body} = result_to_binary_1(tuple_size(Term), Term, <<>>),
     BodyLen = byte_size(Body),
-    << "*", ?BIN_ORG_TYPE_TUPLE/binary, BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
+    << $*, ?BIN_ORG_TYPE_TUPLE/binary, BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>;
 result_to_binary(Term) when is_binary(Term) ->
     Len = byte_size(Term),
     Body = << Len:?BLEN_PARAM_TERM/integer, ?CRLF/binary,
               Term/binary, ?CRLF/binary >>,
     BodyLen = byte_size(Body),
-    << "*", ?BIN_ORG_TYPE_BIN/binary, BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
+    << $*, ?BIN_ORG_TYPE_BIN/binary, BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>;
 result_to_binary(Term) ->
     Bin = term_to_binary(Term),
@@ -266,7 +264,7 @@ result_to_binary(Term) ->
     Body = << Len:?BLEN_PARAM_TERM/integer, ?CRLF/binary,
               Bin/binary, ?CRLF/binary >>,
     BodyLen = byte_size(Body),
-    << "*", ?BIN_ORG_TYPE_TERM/binary, BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
+    << $*, ?BIN_ORG_TYPE_TERM/binary, BodyLen:?BLEN_BODY_LEN/integer, ?CRLF/binary,
        Body/binary, ?CRLF/binary >>.
 
 
