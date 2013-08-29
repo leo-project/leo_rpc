@@ -94,6 +94,9 @@ handle_call(stop, _From, State) ->
 handle_call(_Request, _From, State) ->
     {reply, unknown_request, State}.
 
+handle_cast(cancel, State) ->
+    {noreply, State#state{pid_from = undefined}};
+
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
