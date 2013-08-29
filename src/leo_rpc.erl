@@ -238,7 +238,7 @@ exec_1(PodName, ParamsBin, Timeout) ->
                         Ret
                 end
             after
-                catch gen_server:cast(ServerRef, cancel),
+                catch gen_server:call(ServerRef, cancel),
                 leo_pod:checkin_async(PodName, ServerRef)
             end;
         _ ->

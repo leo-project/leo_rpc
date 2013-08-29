@@ -49,7 +49,7 @@
 
 
 -define(SOCKET_OPTS, [binary, {active, once}, {packet, raw}, {reuseaddr, true}]).
--define(RECV_TIMEOUT, 10000).
+-define(RECV_TIMEOUT, 20000).
 -define(MAX_REQ_PER_CON, 1000).
 
 %% ===================================================================
@@ -84,6 +84,9 @@ init([Host, IP, Port, ReconnectSleepInterval]) ->
 handle_call({request, Req}, From, State) ->
     exec(Req, From, State);
 
+handle_call(cancel, _From, State) ->
+    {reply, ok, State#state{pid_from = undefined}};
+
 handle_call(status,_From, #state{socket = Socket} = State) ->
     Ret = (Socket /= undefined),
     {reply, {ok, Ret}, State};
@@ -93,9 +96,6 @@ handle_call(stop, _From, State) ->
 
 handle_call(_Request, _From, State) ->
     {reply, unknown_request, State}.
-
-handle_cast(cancel, State) ->
-    {noreply, State#state{pid_from = undefined}};
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
