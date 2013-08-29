@@ -37,6 +37,7 @@
          terminate/2, code_change/3]).
 
 -record(state, {
+          tref = undefined :: timer:tref(),
           interval = 0 :: pos_integer(),
           active = [] :: list(tuple())
          }).
@@ -72,8 +73,8 @@ connected_nodes() ->
 %% gen_server callbacks
 %%====================================================================
 init([Interval]) ->
-    defer_inspect(Interval),
-    {ok, #state{interval = Interval}}.
+    {ok, TRef} = defer_inspect(Interval),
+    {ok, #state{interval = Interval, tref = TRef}}.
 
 
 handle_call(stop, _From, State) ->
@@ -87,7 +88,7 @@ handle_call({inspect, Node}, _From, State) ->
     [Node2|_] = string:tokens(Node1, "@:"),
     Node3 = list_to_atom(Node2),
 
-    {ok, Active} = inspect_fun(0, false),
+    {ok, Active, _} = inspect_fun(0, false),
     Ret = case lists:keyfind(Node3, 1, Active) of
               {_,_Host,_Port, NumOfActive,_Workers} when NumOfActive > 0 ->
                   active;
@@ -116,8 +117,8 @@ handle_call(_Request, _From, State) ->
     {reply, unknown_request, State}.
 
 handle_cast(inspect, #state{interval = Interval} = State) ->
-    {ok, Active} = inspect_fun(Interval),
-    {noreply, State#state{active = Active}};
+    {ok, Active, TRef} = inspect_fun(Interval),
+    {noreply, State#state{active = Active, tref = TRef}};
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -130,7 +131,8 @@ handle_info(_Info, State) ->
     {stop, {unhandled_message, _Info}, State}.
 
 
-terminate(_Reason,_State) ->
+terminate(_Reason, #state{tref = TRef} = _State) ->
+    timer:cancel(TRef),
     ok.
 
 
@@ -157,12 +159,14 @@ inspect_fun(Interval) ->
     inspect_fun(Interval, true).
 
 inspect_fun(Interval, IsDefer) ->
-    Ret = inspect_fun_1([]),
+    {ok, Active} = inspect_fun_1([]),
     case IsDefer of
-        true  -> defer_inspect(Interval);
-        false -> void
-    end,
-    Ret.
+        true  -> 
+            {ok, TRef} = defer_inspect(Interval),
+            {ok, Active, TRef};
+        false -> 
+            {ok, Active, undefined}
+    end.
 
 inspect_fun_1([] = Acc) ->
     Ret = ets:first(?TBL_RPC_CONN_INFO),
