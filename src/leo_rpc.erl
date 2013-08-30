@@ -201,7 +201,7 @@ exec(Node, ParamsBin, Timeout) ->
     %% find the node from worker-procs
     {Node1, IP1, Port1} = case string:tokens(Node, "@:") of
                               [_Node, IP, Port] ->
-                                  {list_to_atom(_Node), IP, Port};
+                                  {list_to_atom(_Node), IP, list_to_integer(Port)};
                               [_Node, IP] ->
                                   {list_to_atom(_Node), IP, ?DEF_LISTEN_PORT};
                               [_Node] ->
