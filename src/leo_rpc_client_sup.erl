@@ -70,29 +70,27 @@ start_child(Host, IP, Port) ->
     start_child(Host, IP, Port, 0).
 
 start_child(Host, IP, Port, ReconnectSleep) ->
-    Id = leo_rpc_client_utils:get_client_worker_id(Host, Port),   
+    Id = leo_rpc_client_utils:get_client_worker_id(Host, Port),
     case whereis(Id) of
         undefined ->
             WorkerArgs = [Host, IP, Port, ReconnectSleep],
+            InitFun = fun(ManagerRef) ->
+                              true = ets:insert(?TBL_RPC_CONN_INFO,
+                                                {Host, #rpc_conn{host = Host,
+                                                                 ip = IP,
+                                                                 port = Port,
+                                                                 workers = ?DEF_CLIENT_CONN_POOL_SIZE,
+                                                                 manager_ref = ManagerRef}})
+                      end,
             ChildSpec  = {Id, {leo_pod_sup, start_link,
                                [Id,
                                 ?DEF_CLIENT_CONN_POOL_SIZE,
                                 ?DEF_CLIENT_CONN_BUF_SIZE,
-                                leo_rpc_client_conn, WorkerArgs]},
+                                leo_rpc_client_conn, WorkerArgs, InitFun]},
                           permanent, ?SHUTDOWN_WAITING_TIME,
                           supervisor, [leo_pod_sup]},
-
             case supervisor:start_child(?MODULE, ChildSpec) of
                 {ok, _Pid} ->
-                    [Child|_] = supervisor:which_children(_Pid),
-                    ManagerRef = element(1, Child),
-
-                    true = ets:insert(?TBL_RPC_CONN_INFO,
-                                      {Host, #rpc_conn{host = Host,
-                                                       ip = IP,
-                                                       port = Port,
-                                                       workers = ?DEF_CLIENT_CONN_POOL_SIZE,
-                                                       manager_ref = ManagerRef}}),
                     ok;
                 {error, Cause} ->
                     error_logger:warning_msg(

@@ -32,9 +32,15 @@
 -ifdef(EUNIT).
 
 all_test_() ->
-    {foreach, fun setup/0, fun teardown/1,
-     [{with, [T]} || T <- [fun suite_/1
-                          ]]}.
+    {timeout, 300, {foreach, fun setup/0, fun teardown/1,
+     [{with, [T]} || T <- [
+                        fun basic_/1,
+                        fun tuple_/1,
+                        fun send_large_/1,
+                        fun receive_large_/1,
+                        fun record_/1,
+                        fun others_/1
+                          ]]}}.
 
 setup() ->
     [] = os:cmd("epmd -daemon"),
@@ -49,16 +55,16 @@ teardown(_) ->
     net_kernel:stop(),
     ok.
 
-suite_(Node) ->
+basic_(Node) ->
     %% "leo_rpc:call/4"
     Mod1 = 'leo_misc',
     Fun1 = 'get_value',
     Param1 = [{'a',1},{'b',2},{'c',3}],
     Param2 = <<"123">>,
 
-    ?assertEqual(1,      leo_rpc:call(Node, Mod1, Fun1, ['a', Param1, Param2 ])),
-    ?assertEqual(2,      leo_rpc:call(Node, Mod1, Fun1, ['b', Param1, Param2 ])),
-    ?assertEqual(Param2, leo_rpc:call(Node, Mod1, Fun1, ['d', Param1, Param2 ])),
+    ?assertEqual(1,      leo_rpc:call(Node, Mod1, Fun1, ['a', Param1, Param2])),
+    ?assertEqual(2,      leo_rpc:call(Node, Mod1, Fun1, ['b', Param1, Param2])),
+    ?assertEqual(Param2, leo_rpc:call(Node, Mod1, Fun1, ['d', Param1, Param2])),
     ?assertEqual(true, is_integer(leo_rpc:call(Node, 'leo_date', 'clock', []))),
 
     %% "leo_rpc:async_call/4"
@@ -81,12 +87,19 @@ suite_(Node) ->
     ?assertEqual({[Param2,Param2],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['d', Param1, Param2])),
     ?assertMatch({[_,_],[]}, leo_rpc:multicall(Nodes, 'leo_date', 'clock', [])),
 
+    %% "leo_rpc:cast/4"
+    ?assertEqual(true, leo_rpc:cast(Node, Mod1, Fun1, ['a', Param1, Param2])),
+    ok.
+
+tuple_(Node) ->
     %% a value type is tuple
     Params   = [{ok, 1, 2}, 3, <<"name:LEO">>, <<"type:FS">>],
     Expected = list_to_tuple(Params),
-    ?assertEqual(Expected, leo_rpc:call('node_0@127.0.0.1', 'erlang', 'list_to_tuple', [Params])),
-    ?assertMatch({_,_,_},  leo_rpc:call('node_0@127.0.0.1', 'erlang', 'now', [])),
+    ?assertEqual(Expected, leo_rpc:call(Node, 'erlang', 'list_to_tuple', [Params])),
+    ?assertMatch({_,_,_},  leo_rpc:call(Node, 'erlang', 'now', [])),
+    ok.
 
+send_large_(Node) ->
     %% send a large-object
     lists:foreach(fun(Size) ->
                           Bin = crypto:rand_bytes(Size),
@@ -102,7 +115,9 @@ suite_(Node) ->
                         8  * 1024*1024,
                         9  * 1024*1024,
                         10 * 1024*1024]),
+    ok.
 
+receive_large_(Node) ->
     %% receive a large-object
     lists:foreach(fun(Size) ->
                           Bin = leo_rpc:call(Node, crypto, rand_bytes, [Size]),
@@ -117,12 +132,37 @@ suite_(Node) ->
                         8  * 1024*1024,
                         9  * 1024*1024,
                         10 * 1024*1024]),
+    ok.
 
+-record(test, {
+        str :: string(),
+        int :: integer(),
+        bool :: boolean(),
+        bin  :: binary(),
+        func :: fun()
+        }).
+
+record_(Node) ->
+    F = fun(X) -> X * X end,
+    Bin = crypto:rand_bytes(10 * 1024*1024),
+    T = #test{
+            str = "test",
+            int = 1,
+            bool = true,
+            bin = Bin,
+            func = F
+            },
+    Serialized = term_to_binary(T),
+    ?assertEqual(T, leo_rpc:call(Node, 'erlang', 'binary_to_term', [Serialized])),
+    ok.
+   
+others_(Node) ->
     %% Others
+    ?assertMatch({_,_,_},  leo_rpc:call(Node, 'erlang', 'now', [])),
     ?assertEqual(pong, leo_rpc:ping(Node)),
-    timer:sleep(1000),
     ?assertEqual('node_0@127.0.0.1', leo_rpc:node()),
     ok.
+
 
 
 -endif.

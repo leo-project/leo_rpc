@@ -42,13 +42,15 @@
           port   :: integer(),
           socket :: reference()|undefined,
           reconnect_sleep :: integer(),
-          queue = [] :: list()
+          buf    :: binary(),
+          nreq   :: pos_integer(),
+          pid_from :: pid()|undefined
          }).
 
 
--define(SOCKET_OPTS, [binary, {active, once}, {packet, line}, {reuseaddr, true}]).
--define(RECV_TIMEOUT, 5000).
-
+-define(SOCKET_OPTS, [binary, {active, once}, {packet, raw}, {reuseaddr, true}]).
+-define(RECV_TIMEOUT, 20000).
+-define(MAX_REQ_PER_CON, 1000).
 
 %% ===================================================================
 %% APIs
@@ -70,7 +72,8 @@ init([Host, IP, Port, ReconnectSleepInterval]) ->
                    ip = IP,
                    port = Port,
                    reconnect_sleep = ReconnectSleepInterval,
-                   queue = []},
+                   nreq = 0,
+                   buf = <<>>},
     case connect(State) of
         {ok, NewState} ->
             {ok, NewState};
@@ -80,6 +83,9 @@ init([Host, IP, Port, ReconnectSleepInterval]) ->
 
 handle_call({request, Req}, From, State) ->
     exec(Req, From, State);
+
+handle_call(cancel, _From, State) ->
+    {reply, ok, State#state{pid_from = undefined}};
 
 handle_call(status,_From, #state{socket = Socket} = State) ->
     Ret = (Socket /= undefined),
@@ -95,11 +101,16 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 
-handle_info({tcp, Socket, Bs}, State) ->
-    Res = recv(Socket, Bs),
-    inet:setopts(Socket, [{active, once},{packet, line}]),
-    {noreply, handle_response(Res, State)};
-
+handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
+    Res = recv(Socket, <<Buf/binary, Bs/binary>>),
+    case Res of
+        {error, Cause} ->
+            {stop, Cause, State};
+        {value, Value, Rest} ->
+            inet:setopts(Socket, [{active, once}]),
+            NewState = State#state{buf = Rest},
+            {noreply, handle_response(Value, NewState)}
+    end;
 handle_info({tcp_error, _Socket, _Reason}, State) ->
     {noreply, State};
 
@@ -111,7 +122,7 @@ handle_info({tcp_closed, _Socket}, State) ->
             Self = self(),
             spawn(fun() -> reconnect_loop(Self, State) end)
     end,
-    {noreply, State#state{socket = undefined, queue = []}};
+    {noreply, State#state{socket = undefined}};
 
 handle_info({connection_ready, Socket}, #state{socket = undefined} = State) ->
     {noreply, State#state{socket = Socket}};
@@ -146,8 +157,7 @@ exec(Req, From, #state{socket = undefined} = State) ->
         {ok, #state{socket = Socket} = State1} ->
             case gen_tcp:send(Socket, Req) of
                 ok ->
-                    NewQueue = [From|State1#state.queue],
-                    {noreply, State1#state{queue = NewQueue}};
+                    {noreply, State1#state{pid_from = From}};
                 {error, Reason} ->
                     {reply, {error, Reason}, State1}
             end;
@@ -158,8 +168,7 @@ exec(Req, From, #state{socket = undefined} = State) ->
 exec(Req, From, #state{socket = Socket} = State) ->
     case gen_tcp:send(Socket, Req) of
         ok ->
-            NewQueue = [From|State#state.queue],
-            {noreply, State#state{queue = NewQueue}};
+            {noreply, State#state{pid_from = From}};
         {error, Reason} ->
             {reply, {error, Reason}, State}
     end.
@@ -169,25 +178,29 @@ exec(Req, From, #state{socket = Socket} = State) ->
 %% @private
 -spec(handle_response(binary(), #state{}) ->
              #state{}).
-handle_response(Data, #state{queue = Queue} = State) ->
-    NewQueue = reply(Data, Queue),
-    State#state{queue = NewQueue}.
+handle_response(Data, #state{pid_from = From,
+                             socket = Socket,
+                             nreq   = NumReq} = State) ->
+    reply(Data, From),
+    case NumReq of
+        ?MAX_REQ_PER_CON ->
+            catch gen_tcp:close(Socket),
+            State#state{pid_from = undefined, socket = undefined, nreq = 0};
+        _ ->
+            State#state{pid_from = undefined, nreq = NumReq + 1}
+    end.
 
 
-%% @doc: Send data to the 1st-client in the queue
+%% @doc: Send data to the client
 %% @private
-reply(_, []) ->
+reply(Value, undefined) ->
     error_logger:warning_msg(
       "~p,~p,~p,~p~n",
       [{module, ?MODULE_STRING}, {function, "reply/2"},
-       {line, ?LINE}, {body, "Nothing in queue"}]),
-    throw(empty_queue);
+       {line, ?LINE}, {body, Value}]);
 
-reply(Value, Queue) ->
-    [From|NewQueue] = lists:reverse(Queue),
-    gen_server:reply(From, {ok, Value}),
-    NewQueue.
-
+reply(Value, From) ->
+    gen_server:reply(From, {ok, Value}).
 
 %% @doc: Connect to server
 %% @private
@@ -227,49 +240,71 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
 %%    >>
 %%
 -spec(recv(pid(), binary()) ->
-             any() | {error, invalid_format}).
-recv(Socket, << "*",
-                Type:?BLEN_TYPE_LEN/binary,
-                BodyLen:?BLEN_BODY_LEN/integer, "\r\n" >>) ->
-    inet:setopts(Socket, [{packet, raw}]),
-    case gen_tcp:recv(Socket, (BodyLen + 2), ?RECV_TIMEOUT) of
-        {ok, << Len:?BLEN_PARAM_TERM/integer, "\r\n", Rest/binary >>} ->
-            case Type of
-                ?BIN_ORG_TYPE_BIN ->
-                    << RetBin:Len/binary, "\r\n\r\n" >> = Rest,
-                    RetBin;
-                ?BIN_ORG_TYPE_TERM ->
-                    << Term:Len/binary, "\r\n\r\n" >> = Rest,
-                    binary_to_term(Term);
-                ?BIN_ORG_TYPE_TUPLE ->
-                    recv_1(Len, Rest, []);
-                _ ->
-                    {error, invalid_format}
-            end;
+             {value, any(), binary()} | {error, any()}).
+recv(Socket, Bin) ->
+    Size = byte_size(Bin),
+    recv(Socket, Bin, Size).
+
+recv(Socket, Bin, GotSize) when GotSize < ?BLEN_LEN_TYPE_WITH_BODY ->
+    WantSize = ?BLEN_LEN_TYPE_WITH_BODY,
+    case gen_tcp:recv(Socket, WantSize - GotSize, ?RECV_TIMEOUT) of
+        {ok, Rest} ->
+            recv(Socket, <<Bin/binary, Rest/binary>>, WantSize);
         _ ->
-            {error, invalid_format}
+            {error, {invalid_data_length, GotSize}}
     end;
-recv(_Socket,_) ->
-    {error, invalid_format}.
 
-recv_1(_, <<"\r\n">>, Acc) ->
-    list_to_tuple(Acc);
-recv_1(Len, << "B\r\n", Rest1/binary >>, Acc) ->
-    recv_2(Len, ?BIN_ORG_TYPE_BIN, Rest1, Acc);
-recv_1(Len, << "M\r\n", Rest1/binary >>, Acc) ->
-    recv_2(Len, ?BIN_ORG_TYPE_TERM, Rest1, Acc);
-recv_1(Len, << "T\r\n", Rest1/binary >>, Acc) ->
-    recv_2(Len, ?BIN_ORG_TYPE_TUPLE, Rest1, Acc);
-recv_1(_,_,_) ->
-    {error, invalid_format}.
+recv(Socket, << $*,
+                Type:?BLEN_TYPE_LEN/binary,
+                BodyLen:?BLEN_BODY_LEN/integer, ?CRLF_STR, Rest/binary >>, Size) ->
+    GotSize = byte_size(Rest),
+    NeedSize = BodyLen + 2,
+    WantSize = NeedSize - GotSize,
+    case WantSize of
+        RecvByte when RecvByte =< 0 ->
+            <<TargetBin:NeedSize/binary, NextBin/binary>> = Rest,
+            recv_0(Type, TargetBin, NextBin);
+        RecvByte ->
+            case gen_tcp:recv(Socket, RecvByte, ?RECV_TIMEOUT) of
+                {ok, Rest2} ->
+                    recv_0(Type, <<Rest/binary, Rest2/binary>>, <<>>);
+                _ ->
+                    {error, {invalid_data_length, Size}}
+            end
+    end.
 
-recv_2(Len, Type, Rest1, Acc) ->
+
+recv_0(?BIN_ORG_TYPE_BIN, << Len:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest/binary >>, NextBin) ->
+    << RetBin:Len/binary, ?CRLF_CRLF_STR >> = Rest,
+    {value, RetBin, NextBin};
+recv_0(?BIN_ORG_TYPE_TERM, << Len:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest/binary >>, NextBin) ->
+    << Term:Len/binary, ?CRLF_CRLF_STR >> = Rest,
+    {value, binary_to_term(Term), NextBin};
+recv_0(?BIN_ORG_TYPE_TUPLE, << Len:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest/binary >>, NextBin) ->
+    recv_1(Len, Rest, [], NextBin);
+recv_0(InvalidType, _Rest, _NextBin) ->
+    {error, {invalid_root_type, InvalidType}}.
+
+
+recv_1(_, ?CRLF, Acc, NextBin) ->
+    {value, list_to_tuple(Acc), NextBin};
+recv_1(Len, << $B, ?CRLF_STR, Rest1/binary >>, Acc, NextBin) ->
+    recv_2(Len, ?BIN_ORG_TYPE_BIN, Rest1, Acc, NextBin);
+recv_1(Len, << $M, ?CRLF_STR, Rest1/binary >>, Acc, NextBin) ->
+    recv_2(Len, ?BIN_ORG_TYPE_TERM, Rest1, Acc, NextBin);
+recv_1(Len, << $T, ?CRLF_STR, Rest1/binary >>, Acc, NextBin) ->
+    recv_2(Len, ?BIN_ORG_TYPE_TUPLE, Rest1, Acc, NextBin);
+recv_1(_,_InvalidBlock,_,_NextBin) ->
+    {error, {invalid_tuple_type, _InvalidBlock}}.
+
+
+recv_2(Len, Type, Rest1, Acc, NextBin) ->
     case (byte_size(Rest1) > Len) of
         true ->
-            << Item:Len/binary, "\r\n", Rest2/binary >> = Rest1,
+            << Item:Len/binary, ?CRLF_STR, Rest2/binary >> = Rest1,
             {Len2, Rest4} =
                 case Rest2 of
-                    << Len1:?BLEN_PARAM_TERM/integer, "\r\n", Rest3/binary >> ->
+                    << Len1:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest3/binary >> ->
                         {Len1, Rest3};
                     _ ->
                         {0, Rest2}
@@ -281,11 +316,9 @@ recv_2(Len, Type, Rest1, Acc) ->
                        _ ->
                            [binary_to_term(Item)|Acc]
                    end,
-            recv_1(Len2, Rest4, Acc1);
+            recv_1(Len2, Rest4, Acc1, NextBin);
         false ->
-            {error, invalid_format}
+            {error, {invalid_data_length, Len, Type, Rest1}}
     end.
-
-
 
 

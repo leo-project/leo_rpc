@@ -31,6 +31,7 @@
          call/4, call/5, call/6,
          multicall/4, multicall/5,
          nb_yield/1, nb_yield/2,
+         cast/4,
          ping/1, status/0, node/0, nodes/0
         ]).
 
@@ -115,18 +116,18 @@ nb_yield(Key) ->
     nb_yield(Key, ?DEF_TIMEOUT).
 
 -spec(nb_yield(pid(), pos_integer()) ->
-             {value, any()} | timeout | {badrpc, any()}).
+             {value, any()} | timeout).
 nb_yield(Key, Timeout) when is_pid(Key) ->
     case erlang:is_process_alive(Key) of
         false ->
-            {badrpc, invalid_key};
+            {value, {badrpc, invalid_key}};
         true ->
             erlang:send(Key, {get, self()}),
             receive
                 {badrpc, timeout} ->
                     timeout;
                 {badrpc, Cause} ->
-                    {badrpc, Cause};
+                    {value, {badrpc, Cause}};
                 Ret ->
                     {value, Ret}
             after Timeout ->
@@ -134,7 +135,17 @@ nb_yield(Key, Timeout) when is_pid(Key) ->
             end
     end;
 nb_yield(_,_) ->
-    {badrpc, invalid_key}.
+    {value, {badrpc, invalid_key}}.
+
+
+%% @doc No response is delivered and the calling process is not suspended
+%%      until the evaluation is complete, as is the case with call/4,5.
+%%
+-spec(cast(atom(), module(), atom(), list(term())) ->
+             true).
+cast(Node, Module, Method, Args) ->
+    _ = spawn(?MODULE, call, [Node, Module, Method, Args]),
+    true.
 
 
 %% @doc Tries to set up a connection to Node.
@@ -190,7 +201,7 @@ exec(Node, ParamsBin, Timeout) ->
     %% find the node from worker-procs
     {Node1, IP1, Port1} = case string:tokens(Node, "@:") of
                               [_Node, IP, Port] ->
-                                  {list_to_atom(_Node), IP, Port};
+                                  {list_to_atom(_Node), IP, list_to_integer(Port)};
                               [_Node, IP] ->
                                   {list_to_atom(_Node), IP, ?DEF_LISTEN_PORT};
                               [_Node] ->
@@ -218,17 +229,22 @@ exec(Node, ParamsBin, Timeout) ->
 exec_1(PodName, ParamsBin, Timeout) ->
     case leo_pod:checkout(PodName) of
         {ok, ServerRef} ->
-            Ret2 = case catch gen_server:call(
-                                ServerRef, {request, ParamsBin}, Timeout) of
-                       {'EXIT', Cause} ->
-                           {error, Cause};
-                       Ret1 ->
-                           Ret1
-                   end,
-            leo_pod:checkin_async(PodName, ServerRef),
-            Ret2;
+            try
+                case catch gen_server:call(
+                             ServerRef, {request, ParamsBin}, Timeout) of
+                    {'EXIT', Cause} ->
+                        {error, Cause};
+                    Ret ->
+                        Ret
+                end
+            after
+                catch gen_server:call(ServerRef, cancel),
+                leo_pod:checkin_async(PodName, ServerRef)
+            end;
         _ ->
-            {error, []}
+            %% retry
+            timer:sleep(50),
+            exec_1(PodName, ParamsBin, Timeout)
     end.
 
 
