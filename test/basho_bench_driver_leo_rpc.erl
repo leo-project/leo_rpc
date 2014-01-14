@@ -2,7 +2,7 @@
 %%
 %% Leo-RPC
 %%
-%% Copyright (c) 2013 Rakuten, Inc.
+%% Copyright (c) 2013-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
