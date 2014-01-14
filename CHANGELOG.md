@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.6.2 (Jan 14, 2014)
+
+* Improved
+    * Upgrade leo_commons to v0.14.10
+    * Upgrade leo_pod to 0.4.7
+    * Support Erlang OTP R16B03
+
+
 ## 0.6.1 (Sep 29, 2013)
 
 * New Features
