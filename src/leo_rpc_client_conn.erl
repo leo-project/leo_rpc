@@ -175,10 +175,10 @@ exec(Req, From, #state{socket = undefined} = State) ->
                 ok ->
                     {noreply, State1#state{pid_from = From}};
                 {error, Reason} ->
-                    {reply, {error, Reason}, State1}
+                    {stop, Reason, {error, Reason}, State1}
             end;
         {error, Reason} ->
-            {reply, {error, Reason}, State}
+            {stop, Reason, {error, Reason}, State}
     end;
 
 exec(Req, From, #state{socket = Socket} = State) ->
@@ -186,7 +186,7 @@ exec(Req, From, #state{socket = Socket} = State) ->
         ok ->
             {noreply, State#state{pid_from = From}};
         {error, Reason} ->
-            {reply, {error, Reason}, State}
+            {stop, Reason, {error, Reason}, State}
     end.
 
 
@@ -195,13 +195,15 @@ exec(Req, From, #state{socket = Socket} = State) ->
 -spec(handle_response(binary(), #state{}) ->
              #state{}).
 handle_response(Data, #state{pid_from = From,
-                             socket = Socket,
+                             socket = _Socket,
                              nreq   = NumReq} = State) ->
     reply(Data, From),
     case NumReq of
         ?MAX_REQ_PER_CON ->
-            catch gen_tcp:close(Socket),
-            State#state{pid_from = undefined, socket = undefined, nreq = 0};
+            %% for debug
+            State#state{pid_from = undefined, nreq = NumReq + 1};
+            %catch gen_tcp:close(Socket),
+            %State#state{pid_from = undefined, socket = undefined, nreq = 0};
         _ ->
             State#state{pid_from = undefined, nreq = NumReq + 1}
     end.
