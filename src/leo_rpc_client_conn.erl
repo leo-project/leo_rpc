@@ -107,12 +107,28 @@ handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
         {error, Cause} ->
             {stop, Cause, State};
         {value, Value, Rest} ->
+            %% The receive buf should be empty
+            case Rest of
+                <<>> -> void;
+                Garbage ->
+                    error_logger:error_msg(
+                      "~p,~p,~p,~p~n",
+                      [{module, ?MODULE_STRING}, {function, "handle_info/2"},
+                       {line, ?LINE}, {body, {garbage_left_in_buf, Socket, Garbage}}])
+            end,
             inet:setopts(Socket, [{active, once}]),
             NewState = State#state{buf = Rest},
             {noreply, handle_response(Value, NewState)}
     end;
-handle_info({tcp_error, _Socket, _Reason}, State) ->
-    {noreply, State};
+
+handle_info({tcp_error, Socket, Reason}, #state{pid_from = From} = State) ->
+    error_logger:error_msg(
+      "~p,~p,~p,~p~n",
+      [{module, ?MODULE_STRING}, {function, "handle_info/2"},
+       {line, ?LINE}, {body, {tcp_error, Socket, Reason}}]),
+    reply({error, Reason}, From),
+    catch gen_tcp:close(Socket),
+    {noreply, State#state{pid_from = undefined, socket = undefined, nreq = 0}};
 
 handle_info({tcp_closed, _Socket}, State) ->
     case State#state.reconnect_sleep of
@@ -197,7 +213,7 @@ reply(Value, undefined) ->
     error_logger:warning_msg(
       "~p,~p,~p,~p~n",
       [{module, ?MODULE_STRING}, {function, "reply/2"},
-       {line, ?LINE}, {body, Value}]);
+       {line, ?LINE}, {body, {ignored_due_to_timeout, Value}}]);
 
 reply(Value, From) ->
     gen_server:reply(From, {ok, Value}).
