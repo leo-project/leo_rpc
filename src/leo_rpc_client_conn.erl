@@ -131,6 +131,7 @@ handle_info({tcp_error, Socket, Reason}, #state{pid_from = From} = State) ->
     {noreply, State#state{pid_from = undefined, socket = undefined, nreq = 0}};
 
 handle_info({tcp_closed, _Socket}, State) ->
+    terminate(tcp_closed, State),
     case State#state.reconnect_sleep of
         0 ->
             void;
@@ -144,9 +145,11 @@ handle_info({connection_ready, Socket}, #state{socket = undefined} = State) ->
     {noreply, State#state{socket = Socket}};
 
 handle_info(stop, State) ->
+    terminate(stop, State),
     {stop, shutdown, State};
 
 handle_info(_Info, State) ->
+    terminate(_Info, State),
     {stop, {unhandled_message, _Info}, State}.
 
 terminate(_Reason, #state{socket = Socket}) ->
