@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.8.0 (Feb 18, 2014)
+
+* Fixed bugs and improvements
+    * Close socket explicitly when tcp_error occured
+    * Increased the default keepalive value from 1000 to 1000000
+    * Restart a gen_server proc when some error occured
+    * Fixed to close a tcp socket properly in any cases
+
+
 ## 0.6.2 (Jan 14, 2014)
 
 * Improved
