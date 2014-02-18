@@ -33,14 +33,14 @@
 
 all_test_() ->
     {timeout, 300, {foreach, fun setup/0, fun teardown/1,
-     [{with, [T]} || T <- [
-                        fun basic_/1,
-                        fun tuple_/1,
-                        fun send_large_/1,
-                        fun receive_large_/1,
-                        fun record_/1,
-                        fun others_/1
-                          ]]}}.
+                    [{with, [T]} || T <- [
+                                          fun basic_/1,
+                                          fun tuple_/1,
+                                          fun send_large_/1,
+                                          fun receive_large_/1,
+                                          fun record_/1,
+                                          fun others_/1
+                                         ]]}}.
 
 setup() ->
     [] = os:cmd("epmd -daemon"),
@@ -101,64 +101,64 @@ tuple_(Node) ->
 
 send_large_(Node) ->
     {timeout, 15, begin
-    %% send a large-object
-    lists:foreach(fun(Size) ->
-                          Bin = crypto:rand_bytes(Size),
-                          RPCKey5 = leo_rpc:async_call(Node, 'erlang', 'byte_size', [Bin]),
-                          ?assertEqual({value, Size}, leo_rpc:nb_yield(RPCKey5))
-                  end, [1  * 1024*1024,
-                        2  * 1024*1024,
-                        3  * 1024*1024,
-                        4  * 1024*1024,
-                        5  * 1024*1024,
-                        6  * 1024*1024,
-                        7  * 1024*1024,
-                        8  * 1024*1024,
-                        9  * 1024*1024,
-                        10 * 1024*1024])
-    end}.
+                      %% send a large-object
+                      lists:foreach(fun(Size) ->
+                                            Bin = crypto:rand_bytes(Size),
+                                            RPCKey5 = leo_rpc:async_call(Node, 'erlang', 'byte_size', [Bin]),
+                                            ?assertEqual({value, Size}, leo_rpc:nb_yield(RPCKey5))
+                                    end, [1  * 1024*1024,
+                                          2  * 1024*1024,
+                                          3  * 1024*1024,
+                                          4  * 1024*1024,
+                                          5  * 1024*1024,
+                                          6  * 1024*1024,
+                                          7  * 1024*1024,
+                                          8  * 1024*1024,
+                                          9  * 1024*1024,
+                                          10 * 1024*1024])
+                  end}.
 
 receive_large_(Node) ->
     {timeout, 15, begin
-    %% receive a large-object
-    lists:foreach(fun(Size) ->
-                          Bin = leo_rpc:call(Node, crypto, rand_bytes, [Size]),
-                          ?assertEqual(Size, byte_size(Bin))
-                  end, [1  * 1024*1024,
-                        2  * 1024*1024,
-                        3  * 1024*1024,
-                        4  * 1024*1024,
-                        5  * 1024*1024,
-                        6  * 1024*1024,
-                        7  * 1024*1024,
-                        8  * 1024*1024,
-                        9  * 1024*1024,
-                        10 * 1024*1024])
-    end}.
+                      %% receive a large-object
+                      lists:foreach(fun(Size) ->
+                                            Bin = leo_rpc:call(Node, crypto, rand_bytes, [Size]),
+                                            ?assertEqual(Size, byte_size(Bin))
+                                    end, [1  * 1024*1024,
+                                          2  * 1024*1024,
+                                          3  * 1024*1024,
+                                          4  * 1024*1024,
+                                          5  * 1024*1024,
+                                          6  * 1024*1024,
+                                          7  * 1024*1024,
+                                          8  * 1024*1024,
+                                          9  * 1024*1024,
+                                          10 * 1024*1024])
+                  end}.
 
 -record(test, {
-        str :: string(),
-        int :: integer(),
-        bool :: boolean(),
-        bin  :: binary(),
-        func :: fun()
-        }).
+          str :: string(),
+          int :: integer(),
+          bool :: boolean(),
+          bin  :: binary(),
+          func :: fun()
+         }).
 
 record_(Node) ->
     {timeout, 15, begin
-    F = fun(X) -> X * X end,
-    Bin = crypto:rand_bytes(10 * 1024*1024),
-    T = #test{
-            str = "test",
-            int = 1,
-            bool = true,
-            bin = Bin,
-            func = F
-            },
-    Serialized = term_to_binary(T),
-    ?assertEqual(T, leo_rpc:call(Node, 'erlang', 'binary_to_term', [Serialized]))
-    end}.
-   
+                      F = fun(X) -> X * X end,
+                      Bin = crypto:rand_bytes(10 * 1024*1024),
+                      T = #test{
+                             str = "test",
+                             int = 1,
+                             bool = true,
+                             bin = Bin,
+                             func = F
+                            },
+                      Serialized = term_to_binary(T),
+                      ?assertEqual(T, leo_rpc:call(Node, 'erlang', 'binary_to_term', [Serialized]))
+                  end}.
+
 others_(Node) ->
     %% Others
     ?assertMatch({_,_,_},  leo_rpc:call(Node, 'erlang', 'now', [])),

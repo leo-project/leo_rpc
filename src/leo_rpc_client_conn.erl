@@ -205,8 +205,6 @@ handle_response(Data, #state{pid_from = From,
         ?MAX_REQ_PER_CON ->
             %% for debug
             State#state{pid_from = undefined, nreq = NumReq + 1};
-            %catch gen_tcp:close(Socket),
-            %State#state{pid_from = undefined, socket = undefined, nreq = 0};
         _ ->
             State#state{pid_from = undefined, nreq = NumReq + 1}
     end.
@@ -341,5 +339,3 @@ recv_2(Len, Type, Rest1, Acc, NextBin) ->
         false ->
             {error, {invalid_data_length, Len, Type, Rest1}}
     end.
-
-
