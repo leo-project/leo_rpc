@@ -230,20 +230,21 @@ exec_1(PodName, ParamsBin, Timeout) ->
     case leo_pod:checkout(PodName) of
         {ok, ServerRef} ->
             try
+                % for debug 
                 case catch gen_server:call(
-                             ServerRef, {request, ParamsBin}, Timeout) of
+                             ServerRef, {request, ParamsBin}, infinity) of
                     {'EXIT', Cause} ->
                         {error, Cause};
                     Ret ->
                         Ret
                 end
             after
-                catch gen_server:call(ServerRef, cancel),
+                %gen_server:call(ServerRef, cancel, infinity),
                 leo_pod:checkin_async(PodName, ServerRef)
             end;
         _ ->
             %% retry
-            timer:sleep(50),
+            timer:sleep(500),
             exec_1(PodName, ParamsBin, Timeout)
     end.
 

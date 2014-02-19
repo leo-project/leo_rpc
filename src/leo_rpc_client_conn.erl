@@ -85,13 +85,15 @@ handle_call({request, Req}, From, State) ->
     exec(Req, From, State);
 
 handle_call(cancel, _From, State) ->
-    {reply, ok, State#state{pid_from = undefined}};
+    terminate(cancel, State),
+    {stop, cancel, ok, State#state{pid_from = undefined}};
 
 handle_call(status,_From, #state{socket = Socket} = State) ->
     Ret = (Socket /= undefined),
     {reply, {ok, Ret}, State};
 
 handle_call(stop, _From, State) ->
+    terminate(stop, State),
     {stop, normal, ok, State};
 
 handle_call(_Request, _From, State) ->

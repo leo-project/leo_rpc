@@ -41,7 +41,7 @@
 -define(DEF_POOL_SIZE, 32).
 -define(DEF_POOL_BUF,  32).
 -define(DEF_RPC_PORT,  13075).
--define(SHUTDOWN_WAITING_TIME, 2000).
+-define(SHUTDOWN_WAITING_TIME, 10000).
 -define(MAX_RESTART,              5).
 -define(MAX_TIME,                60).
 

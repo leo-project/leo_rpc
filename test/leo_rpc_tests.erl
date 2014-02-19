@@ -56,48 +56,52 @@ teardown(_) ->
     ok.
 
 basic_(Node) ->
-    %% "leo_rpc:call/4"
-    Mod1 = 'leo_misc',
-    Fun1 = 'get_value',
-    Param1 = [{'a',1},{'b',2},{'c',3}],
-    Param2 = <<"123">>,
-
-    ?assertEqual(1,      leo_rpc:call(Node, Mod1, Fun1, ['a', Param1, Param2])),
-    ?assertEqual(2,      leo_rpc:call(Node, Mod1, Fun1, ['b', Param1, Param2])),
-    ?assertEqual(Param2, leo_rpc:call(Node, Mod1, Fun1, ['d', Param1, Param2])),
-    ?assertEqual(true, is_integer(leo_rpc:call(Node, 'leo_date', 'clock', []))),
-
-    %% "leo_rpc:async_call/4"
-    RPCKey1 = leo_rpc:async_call(Node, Mod1, Fun1, ['a', Param1, Param2]),
-    ?assertEqual({value, 1}, leo_rpc:nb_yield(RPCKey1)),
-
-    RPCKey2 = leo_rpc:async_call(Node, Mod1, Fun1, ['b', Param1, Param2]),
-    ?assertEqual({value, 2}, leo_rpc:nb_yield(RPCKey2)),
-
-    RPCKey3 = leo_rpc:async_call(Node, Mod1, Fun1, ['d', Param1, Param2]),
-    ?assertEqual({value, Param2}, leo_rpc:nb_yield(RPCKey3)),
-
-    RPCKey4 = leo_rpc:async_call(Node, 'leo_date', 'clock', []),
-    ?assertMatch({value, _}, leo_rpc:nb_yield(RPCKey4)),
-
-    %% "leo_rpc:multicall/4"
-    Nodes = [Node, Node],
-    ?assertEqual({[1,1],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['a', Param1, Param2])),
-    ?assertEqual({[2,2],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['b', Param1, Param2])),
-    ?assertEqual({[Param2,Param2],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['d', Param1, Param2])),
-    ?assertMatch({[_,_],[]}, leo_rpc:multicall(Nodes, 'leo_date', 'clock', [])),
-
-    %% "leo_rpc:cast/4"
-    ?assertEqual(true, leo_rpc:cast(Node, Mod1, Fun1, ['a', Param1, Param2])),
-    ok.
+    {timeout, 15, begin
+                      %% "leo_rpc:call/4"
+                      Mod1 = 'leo_misc',
+                      Fun1 = 'get_value',
+                      Param1 = [{'a',1},{'b',2},{'c',3}],
+                      Param2 = <<"123">>,
+                  
+                      ?assertEqual(1,      leo_rpc:call(Node, Mod1, Fun1, ['a', Param1, Param2])),
+                      ?assertEqual(2,      leo_rpc:call(Node, Mod1, Fun1, ['b', Param1, Param2])),
+                      ?assertEqual(Param2, leo_rpc:call(Node, Mod1, Fun1, ['d', Param1, Param2])),
+                      ?assertEqual(true, is_integer(leo_rpc:call(Node, 'leo_date', 'clock', []))),
+                  
+                      %% "leo_rpc:async_call/4"
+                      RPCKey1 = leo_rpc:async_call(Node, Mod1, Fun1, ['a', Param1, Param2]),
+                      ?assertEqual({value, 1}, leo_rpc:nb_yield(RPCKey1)),
+                  
+                      RPCKey2 = leo_rpc:async_call(Node, Mod1, Fun1, ['b', Param1, Param2]),
+                      ?assertEqual({value, 2}, leo_rpc:nb_yield(RPCKey2)),
+                  
+                      RPCKey3 = leo_rpc:async_call(Node, Mod1, Fun1, ['d', Param1, Param2]),
+                      ?assertEqual({value, Param2}, leo_rpc:nb_yield(RPCKey3)),
+                  
+                      RPCKey4 = leo_rpc:async_call(Node, 'leo_date', 'clock', []),
+                      ?assertMatch({value, _}, leo_rpc:nb_yield(RPCKey4)),
+                  
+                      %% "leo_rpc:multicall/4"
+                      Nodes = [Node, Node],
+                      ?assertEqual({[1,1],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['a', Param1, Param2])),
+                      ?assertEqual({[2,2],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['b', Param1, Param2])),
+                      ?assertEqual({[Param2,Param2],[]}, leo_rpc:multicall(Nodes, Mod1, Fun1, ['d', Param1, Param2])),
+                      ?assertMatch({[_,_],[]}, leo_rpc:multicall(Nodes, 'leo_date', 'clock', [])),
+                  
+                      %% "leo_rpc:cast/4"
+                      ?assertEqual(true, leo_rpc:cast(Node, Mod1, Fun1, ['a', Param1, Param2])),
+                      ok
+                  end}.
 
 tuple_(Node) ->
-    %% a value type is tuple
-    Params   = [{ok, 1, 2}, 3, <<"name:LEO">>, <<"type:FS">>],
-    Expected = list_to_tuple(Params),
-    ?assertEqual(Expected, leo_rpc:call(Node, 'erlang', 'list_to_tuple', [Params])),
-    ?assertMatch({_,_,_},  leo_rpc:call(Node, 'erlang', 'now', [])),
-    ok.
+    {timeout, 15, begin
+                      %% a value type is tuple
+                      Params   = [{ok, 1, 2}, 3, <<"name:LEO">>, <<"type:FS">>],
+                      Expected = list_to_tuple(Params),
+                      ?assertEqual(Expected, leo_rpc:call(Node, 'erlang', 'list_to_tuple', [Params])),
+                      ?assertMatch({_,_,_},  leo_rpc:call(Node, 'erlang', 'now', [])),
+                      ok
+                  end}.
 
 send_large_(Node) ->
     {timeout, 15, begin
@@ -160,11 +164,13 @@ record_(Node) ->
                   end}.
 
 others_(Node) ->
-    %% Others
-    ?assertMatch({_,_,_},  leo_rpc:call(Node, 'erlang', 'now', [])),
-    ?assertEqual(pong, leo_rpc:ping(Node)),
-    ?assertEqual('node_0@127.0.0.1', leo_rpc:node()),
-    ok.
+    {timeout, 15, begin
+                      %% Others
+                      ?assertMatch({_,_,_},  leo_rpc:call(Node, 'erlang', 'now', [])),
+                      ?assertEqual(pong, leo_rpc:ping(Node)),
+                      ?assertEqual('node_0@127.0.0.1', leo_rpc:node()),
+                      ok
+                  end}.
 
 
 
