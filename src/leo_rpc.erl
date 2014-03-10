@@ -38,7 +38,7 @@
 -export([loop_1/4, loop_2/4]).
 
 -define(DEF_TIMEOUT, 5000).
-
+-define(DEF_TIMEOUT_LONG, infinity).
 
 %%--------------------------------------------------------------------
 %%  APIs
@@ -230,20 +230,17 @@ exec_1(PodName, ParamsBin, Timeout) ->
     case leo_pod:checkout(PodName) of
         {ok, ServerRef} ->
             try
-                % for debug 
                 case catch gen_server:call(
-                             ServerRef, {request, ParamsBin}, infinity) of
+                             ServerRef, {request, ParamsBin}, ?DEF_TIMEOUT_LONG) of
                     {'EXIT', Cause} ->
                         {error, Cause};
                     Ret ->
                         Ret
                 end
             after
-                %gen_server:call(ServerRef, cancel, infinity),
                 leo_pod:checkin_async(PodName, ServerRef)
             end;
         _ ->
-            %% retry
             timer:sleep(500),
             exec_1(PodName, ParamsBin, Timeout)
     end.
