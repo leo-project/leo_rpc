@@ -27,7 +27,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
--export([async_call/4,
+-export([start/0,
+         async_call/4,
          call/4, call/5, call/6,
          multicall/4, multicall/5,
          nb_yield/1, nb_yield/2,
@@ -38,11 +39,17 @@
 -export([loop_1/4, loop_2/4]).
 
 -define(DEF_TIMEOUT, 5000).
--define(DEF_TIMEOUT_LONG, infinity).
 
 %%--------------------------------------------------------------------
 %%  APIs
 %%--------------------------------------------------------------------
+%% @doc Launch leo-rpc
+-spec(start() ->
+             ok | {error, any()}).
+start() ->
+    application:start(?MODULE).
+
+
 %% @doc Implements call streams with promises, a type of RPC which does not suspend
 %%      the caller until the result is finished.
 %%      Instead, a key is returned which can be used at a later stage to collect the value.
@@ -209,7 +216,6 @@ exec(Node, ParamsBin, Timeout) ->
                               _ ->
                                   {[], 0}
                           end,
-
     case Node1 of
         [] ->
             {error, invalid_node};
@@ -231,7 +237,10 @@ exec_1(PodName, ParamsBin, Timeout) ->
         {ok, ServerRef} ->
             try
                 case catch gen_server:call(
-                             ServerRef, {request, ParamsBin}, ?DEF_TIMEOUT_LONG) of
+                             ServerRef, {request, ParamsBin}, Timeout) of
+                    {'EXIT', {timeout = Cause,_}} ->
+                        %% @TODO - After occurted timeout,it need to implement/modify something...
+                        {error, Cause};
                     {'EXIT', Cause} ->
                         {error, Cause};
                     Ret ->
