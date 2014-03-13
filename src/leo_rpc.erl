@@ -221,18 +221,24 @@ exec(Node, ParamsBin, Timeout) ->
             {error, invalid_node};
         _ ->
             PodName = leo_rpc_client_utils:get_client_worker_id(Node1, Port1),
-            case whereis(PodName) of
-                undefined ->
-                    leo_rpc_client_sup:start_child(Node1, IP1, Port1);
-                _ ->
-                    void
-            end,
-
+            Ret = case whereis(PodName) of
+                      undefined ->
+                          case leo_rpc_client_sup:start_child(Node1, IP1, Port1) of
+                              ok ->
+                                  ok;
+                              {error, Cause} ->
+                                  {error, Cause}
+                          end;
+                      _ ->
+                          ok
+                  end,
             %% execute a requested function with a remote-node
-            exec_1(PodName, ParamsBin, Timeout)
+            exec_1(Ret, PodName, ParamsBin, Timeout)
     end.
 
-exec_1(PodName, ParamsBin, Timeout) ->
+exec_1({error, Cause},_PodName,_ParamsBin,_Timeout) ->
+    {error, Cause};
+exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
     case leo_pod:checkout(PodName) of
         {ok, ServerRef} ->
             try
@@ -243,15 +249,17 @@ exec_1(PodName, ParamsBin, Timeout) ->
                         {error, Cause};
                     {'EXIT', Cause} ->
                         {error, Cause};
-                    Ret ->
-                        Ret
+                    Reply ->
+                        Reply
                 end
             after
                 leo_pod:checkin_async(PodName, ServerRef)
             end;
+        {error, ?ERROR_DUPLICATE_DEST} = Error ->
+            Error;
         _ ->
             timer:sleep(500),
-            exec_1(PodName, ParamsBin, Timeout)
+            exec_1(Ret, PodName, ParamsBin, Timeout)
     end.
 
 

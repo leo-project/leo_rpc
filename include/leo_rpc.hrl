@@ -48,8 +48,14 @@
 -define(DEF_LISTEN_TIMEOUT, 5000).
 
 -define(DEF_CLIENT_POOL_NAME_PREFIX, "leo_rpc_client_").
+
+-ifdef(TEST).
+-define(DEF_CLIENT_CONN_POOL_SIZE, 4).
+-define(DEF_CLIENT_CONN_BUF_SIZE,  4).
+-else.
 -define(DEF_CLIENT_CONN_POOL_SIZE, 64).
 -define(DEF_CLIENT_CONN_BUF_SIZE,  32).
+-endif.
 
 -define(DEF_CLIENT_WORKER_SUP_ID, 'leo_rpc_client_worker').
 -define(DEF_CLIENT_WORKER_POOL_SIZE, 64).
@@ -59,6 +65,10 @@
                     method :: atom(),
                     params = [] :: list(any())
                   }).
+
+
+%% Errors
+-define(ERROR_DUPLICATE_DEST, 'duplicate_destination').
 
 
 %% @doc: rpc-connection/rpc-client related definitions

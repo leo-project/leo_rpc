@@ -70,6 +70,13 @@ start_child(Host, IP, Port) ->
     start_child(Host, IP, Port, 0).
 
 start_child(Host, IP, Port, ReconnectSleep) ->
+    Ret = leo_rpc_client_manager:is_exists(IP, Port),
+    start_child_1(Ret, Host, IP, Port, ReconnectSleep).
+
+%% @private
+start_child_1(true, _Host,_IP,_Port,_ReconnectSleep) ->
+    {error, ?ERROR_DUPLICATE_DEST};
+start_child_1(false, Host, IP, Port, ReconnectSleep) ->
     Id = leo_rpc_client_utils:get_client_worker_id(Host, Port),
     case whereis(Id) of
         undefined ->
@@ -89,6 +96,7 @@ start_child(Host, IP, Port, ReconnectSleep) ->
                                 leo_rpc_client_conn, WorkerArgs, InitFun]},
                           permanent, ?SHUTDOWN_WAITING_TIME,
                           supervisor, [leo_pod_sup]},
+
             case supervisor:start_child(?MODULE, ChildSpec) of
                 {ok, _Pid} ->
                     ok;

@@ -48,7 +48,10 @@
          }).
 
 
--define(SOCKET_OPTS, [binary, {active, once}, {packet, raw}, {reuseaddr, true}]).
+-define(SOCKET_OPTS, [binary,
+                      {active, once},
+                      {packet, raw},
+                      {reuseaddr, true}]).
 -define(RECV_TIMEOUT, 20000).
 -define(MAX_REQ_PER_CON, 1000000).
 
