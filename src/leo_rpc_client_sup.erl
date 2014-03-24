@@ -100,7 +100,7 @@ start_child_1(false, Host, IP, Port, ReconnectSleep) ->
             case supervisor:start_child(?MODULE, ChildSpec) of
                 {ok, _Pid} ->
                     ok;
-                {already_started, _Pid} ->
+                {error, {already_started, _Pid}} ->
                     ok;
                 {error, Cause} ->
                     error_logger:warning_msg(
