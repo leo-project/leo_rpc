@@ -244,10 +244,8 @@ exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
             try
                 case catch gen_server:call(
                              ServerRef, {request, ParamsBin}, Timeout) of
-                    {'EXIT', {timeout = Cause,_}} ->
-                        %% @TODO - After occurted timeout,it need to implement/modify something...
-                        {error, Cause};
                     {'EXIT', Cause} ->
+                        exit(ServerRef, 'purge'),
                         {error, Cause};
                     Reply ->
                         Reply

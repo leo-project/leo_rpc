@@ -107,10 +107,14 @@ handle_cast(_Msg, State) ->
 
 
 handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
-    Res = recv(Socket, <<Buf/binary, Bs/binary>>),
-    case Res of
-        {error, Cause} ->
-            {stop, Cause, State};
+    case recv(Socket, <<Buf/binary, Bs/binary>>) of
+        {error,_Cause} ->
+            case connect(State) of
+                {ok, Socket} ->
+                    {noreply, State#state{socket = Socket}};
+                _ ->
+                    {noreply, State#state{socket = undefined}}
+            end;
         {value, Value, Rest} ->
             %% The receive buf should be empty
             case Rest of
@@ -182,21 +186,23 @@ exec(Req, From, #state{socket = undefined} = State) ->
             case gen_tcp:send(Socket, Req) of
                 ok ->
                     {noreply, State1#state{pid_from = From}};
-                {error, Reason} ->
-                    {stop, Reason, {error, Reason}, State1}
+                {error,_Reason} ->
+                    spawn(fun() -> reconnect_loop(self(), State) end),
+                    {noreply, State#state{socket = undefined}}
             end;
-        {error, Reason} ->
-            {stop, Reason, {error, Reason}, State}
+        {error,_Reason} ->
+            spawn(fun() -> reconnect_loop(self(), State) end),
+            {noreply, State#state{socket = undefined}}
     end;
 
 exec(Req, From, #state{socket = Socket} = State) ->
     case gen_tcp:send(Socket, Req) of
         ok ->
             {noreply, State#state{pid_from = From}};
-        {error, Reason} ->
-            {stop, Reason, {error, Reason}, State}
+        {error,_Reason} ->
+            spawn(fun() -> reconnect_loop(self(), State) end),
+            {noreply, State#state{socket = undefined}}
     end.
-
 
 %% @doc: Handle the response coming from Server
 %% @private
@@ -206,14 +212,7 @@ handle_response(Data, #state{pid_from = From,
                              socket = _Socket,
                              nreq   = NumReq} = State) ->
     reply(Data, From),
-    case NumReq of
-        ?MAX_REQ_PER_CON ->
-            %% for debug
-            State#state{pid_from = undefined, nreq = NumReq + 1};
-        _ ->
-            State#state{pid_from = undefined, nreq = NumReq + 1}
-    end.
-
+    State#state{pid_from = undefined, nreq = NumReq + 1}.
 
 %% @doc: Send data to the client
 %% @private
@@ -229,10 +228,12 @@ reply(Value, From) ->
 %% @doc: Connect to server
 %% @private
 connect(State) ->
-    case gen_tcp:connect(State#state.ip, State#state.port, ?SOCKET_OPTS) of
+    case catch gen_tcp:connect(State#state.ip, State#state.port, ?SOCKET_OPTS) of
         {ok, Socket} ->
             {ok, State#state{socket = Socket}};
         {error, Reason} ->
+            {error, {connection_error, Reason}};
+        {'EXIT',Reason} ->
             {error, {connection_error, Reason}}
     end.
 
@@ -284,6 +285,7 @@ recv(Socket, << $*,
     GotSize = byte_size(Rest),
     NeedSize = BodyLen + 2,
     WantSize = NeedSize - GotSize,
+
     case WantSize of
         RecvByte when RecvByte =< 0 ->
             <<TargetBin:NeedSize/binary, NextBin/binary>> = Rest,
