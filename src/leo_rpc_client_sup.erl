@@ -82,17 +82,20 @@ start_child_1(false, Host, IP, Port, ReconnectSleep) ->
         undefined ->
             WorkerArgs = [Host, IP, Port, ReconnectSleep],
             InitFun = fun(ManagerRef) ->
-                              true = ets:insert(?TBL_RPC_CONN_INFO,
-                                                {Host, #rpc_conn{host = Host,
-                                                                 ip = IP,
-                                                                 port = Port,
-                                                                 workers = ?DEF_CLIENT_CONN_POOL_SIZE,
-                                                                 manager_ref = ManagerRef}})
+                              true = ets:insert(
+                                       ?TBL_RPC_CONN_INFO,
+                                       {Host,
+                                        #rpc_conn{host = Host,
+                                                  ip = IP,
+                                                  port = Port,
+                                                  workers = ?DEF_CLIENT_CONN_POOL_SIZE,
+                                                  manager_ref = ManagerRef}})
                       end,
+
             ChildSpec  = {Id, {leo_pod_sup, start_link,
                                [Id,
-                                ?DEF_CLIENT_CONN_POOL_SIZE,
-                                ?DEF_CLIENT_CONN_BUF_SIZE,
+                                ?env_rpc_con_pool_size(),
+                                ?env_rpc_con_buffer_size(),
                                 leo_rpc_client_conn, WorkerArgs, InitFun]},
                           permanent, ?SHUTDOWN_WAITING_TIME,
                           supervisor, [leo_pod_sup]},

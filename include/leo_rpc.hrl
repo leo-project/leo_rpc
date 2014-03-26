@@ -42,7 +42,7 @@
 %% @doc: rpc-server related definitions
 %%
 -define(POOL_NAME, 'leo_tcp_pool').
--define(DEF_ACCEPTORS,      128).
+-define(DEF_ACCEPTORS,      32).
 -define(DEF_LISTEN_IP,      "127.0.0.1").
 -define(DEF_LISTEN_PORT,    13075).
 -define(DEF_LISTEN_TIMEOUT, 5000).
@@ -53,8 +53,8 @@
 -define(DEF_CLIENT_CONN_POOL_SIZE, 4).
 -define(DEF_CLIENT_CONN_BUF_SIZE,  4).
 -else.
--define(DEF_CLIENT_CONN_POOL_SIZE, 64).
--define(DEF_CLIENT_CONN_BUF_SIZE,  32).
+-define(DEF_CLIENT_CONN_POOL_SIZE, 16).
+-define(DEF_CLIENT_CONN_BUF_SIZE,  16).
 -endif.
 
 -define(DEF_CLIENT_WORKER_SUP_ID, 'leo_rpc_client_worker').
@@ -104,4 +104,23 @@
 -else.
 -define(DEF_INSPECT_INTERVAL, 5000).
 -endif.
+
+
+%% @doc Retrieve connection pool size for rpc-client
+-define(env_rpc_con_pool_size(),
+        case application:get_env(leo_rpc, 'rpc_connection_pool_size') of
+            undefined ->
+                ?DEF_CLIENT_CONN_POOL_SIZE;
+            _ENV_CON_POOL_SIZE ->
+                _ENV_CON_POOL_SIZE
+        end).
+
+%% @doc Retrieve connection buffer size for rpc-client
+-define(env_rpc_con_buffer_size(),
+        case application:get_env(leo_rpc, 'rpc_connection_buffer_size') of
+            undefined ->
+                ?DEF_CLIENT_CONN_BUF_SIZE;
+            _ENV_CON_POOL_SIZE ->
+                _ENV_CON_POOL_SIZE
+        end).
 
