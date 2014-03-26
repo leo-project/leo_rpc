@@ -241,16 +241,15 @@ exec_1({error, Cause},_PodName,_ParamsBin,_Timeout) ->
 exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
     case leo_pod:checkout(PodName) of
         {ok, ServerRef} ->
-            Reply = case catch gen_server:call(
-                               ServerRef, {request, ParamsBin}, Timeout) of
-                      {'EXIT', Cause} ->
-                          exit(ServerRef, 'purge'),
-                          {error, Cause};
-                      Val ->
-                            Val
-                  end,
-            ok = leo_pod:checkin(PodName, ServerRef),
-            Reply;
+            case catch gen_server:call(
+                         ServerRef, {request, ParamsBin}, Timeout) of
+                {'EXIT', Cause} ->
+                    exit(ServerRef, 'purge'),
+                    {error, Cause};
+                Val ->
+                    ok = leo_pod:checkin(PodName, ServerRef),
+                    Val
+            end;
         {error, ?ERROR_DUPLICATE_DEST} = Error ->
             Error;
         _ ->
