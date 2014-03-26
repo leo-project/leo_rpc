@@ -108,7 +108,7 @@
 
 %% @doc Retrieve connection pool size for rpc-client
 -define(env_rpc_con_pool_size(),
-        case application:get_env(leo_rpc, 'rpc_connection_pool_size') of
+        case application:get_env(leo_rpc, 'connection_pool_size') of
             undefined ->
                 ?DEF_CLIENT_CONN_POOL_SIZE;
             _ENV_CON_POOL_SIZE ->
@@ -117,7 +117,7 @@
 
 %% @doc Retrieve connection buffer size for rpc-client
 -define(env_rpc_con_buffer_size(),
-        case application:get_env(leo_rpc, 'rpc_connection_buffer_size') of
+        case application:get_env(leo_rpc, 'connection_buffer_size') of
             undefined ->
                 ?DEF_CLIENT_CONN_BUF_SIZE;
             _ENV_CON_POOL_SIZE ->
