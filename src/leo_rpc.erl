@@ -239,15 +239,14 @@ exec(Node, ParamsBin, Timeout) ->
 exec_1({error, Cause},_PodName,_ParamsBin,_Timeout) ->
     {error, Cause};
 exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
-    case leo_pod:checkout(PodName) of
+    case catch leo_pod:checkout(PodName) of
         {ok, ServerRef} ->
             Reply = case catch gen_server:call(
                                  ServerRef, {request, ParamsBin}, Timeout) of
                         {'EXIT', Cause} ->
-                            %% exit(ServerRef, 'purge'),
                             {error, Cause};
-                        Val ->
-                            Val
+                        Ret_1 ->
+                            Ret_1
                     end,
             ok = leo_pod:checkin(PodName, ServerRef),
             Reply;
