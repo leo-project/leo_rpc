@@ -42,24 +42,14 @@
 %% @doc: rpc-server related definitions
 %%
 -define(POOL_NAME, 'leo_tcp_pool').
--define(DEF_ACCEPTORS,      32).
+-define(DEF_ACCEPTORS,      128).
 -define(DEF_LISTEN_IP,      "127.0.0.1").
 -define(DEF_LISTEN_PORT,    13075).
 -define(DEF_LISTEN_TIMEOUT, 5000).
-
 -define(DEF_CLIENT_POOL_NAME_PREFIX, "leo_rpc_client_").
-
--ifdef(TEST).
 -define(DEF_CLIENT_CONN_POOL_SIZE, 4).
 -define(DEF_CLIENT_CONN_BUF_SIZE,  4).
--else.
--define(DEF_CLIENT_CONN_POOL_SIZE, 16).
--define(DEF_CLIENT_CONN_BUF_SIZE,  16).
--endif.
-
 -define(DEF_CLIENT_WORKER_SUP_ID, 'leo_rpc_client_worker').
--define(DEF_CLIENT_WORKER_POOL_SIZE, 64).
--define(DEF_CLIENT_WORKER_BUF_SIZE,  64).
 
 -record(rpc_info, { module :: atom(),
                     method :: atom(),
