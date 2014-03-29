@@ -41,9 +41,9 @@
 -define(DEF_POOL_SIZE, 32).
 -define(DEF_POOL_BUF,  32).
 -define(DEF_RPC_PORT,  13075).
--define(SHUTDOWN_WAITING_TIME, 2000).
--define(MAX_RESTART,              5).
--define(MAX_TIME,                60).
+-define(SHUTDOWN_WAITING_TIME, 10000).
+-define(MAX_RESTART,           5).
+-define(MAX_TIME,              60).
 
 %% ===================================================================
 %% API functions
@@ -70,27 +70,40 @@ start_child(Host, IP, Port) ->
     start_child(Host, IP, Port, 0).
 
 start_child(Host, IP, Port, ReconnectSleep) ->
+    Ret = leo_rpc_client_manager:is_exists(IP, Port),
+    start_child_1(Ret, Host, IP, Port, ReconnectSleep).
+
+%% @private
+start_child_1(true, _Host,_IP,_Port,_ReconnectSleep) ->
+    {error, ?ERROR_DUPLICATE_DEST};
+start_child_1(false, Host, IP, Port, ReconnectSleep) ->
     Id = leo_rpc_client_utils:get_client_worker_id(Host, Port),
     case whereis(Id) of
         undefined ->
             WorkerArgs = [Host, IP, Port, ReconnectSleep],
             InitFun = fun(ManagerRef) ->
-                              true = ets:insert(?TBL_RPC_CONN_INFO,
-                                                {Host, #rpc_conn{host = Host,
-                                                                 ip = IP,
-                                                                 port = Port,
-                                                                 workers = ?DEF_CLIENT_CONN_POOL_SIZE,
-                                                                 manager_ref = ManagerRef}})
+                              true = ets:insert(
+                                       ?TBL_RPC_CONN_INFO,
+                                       {Host,
+                                        #rpc_conn{host = Host,
+                                                  ip = IP,
+                                                  port = Port,
+                                                  workers = ?DEF_CLIENT_CONN_POOL_SIZE,
+                                                  manager_ref = ManagerRef}})
                       end,
+
             ChildSpec  = {Id, {leo_pod_sup, start_link,
                                [Id,
-                                ?DEF_CLIENT_CONN_POOL_SIZE,
-                                ?DEF_CLIENT_CONN_BUF_SIZE,
+                                ?env_rpc_con_pool_size(),
+                                ?env_rpc_con_buffer_size(),
                                 leo_rpc_client_conn, WorkerArgs, InitFun]},
                           permanent, ?SHUTDOWN_WAITING_TIME,
                           supervisor, [leo_pod_sup]},
+
             case supervisor:start_child(?MODULE, ChildSpec) of
                 {ok, _Pid} ->
+                    ok;
+                {error, {already_started, _Pid}} ->
                     ok;
                 {error, Cause} ->
                     error_logger:warning_msg(

@@ -84,4 +84,3 @@ add_listener(Id, Socket, State, Module, Option) ->
                  [leo_rpc_server_listener]},
     {ok, _Pid} = supervisor:start_child(leo_rpc_sup, ChildSpec),
     add_listener(Id - 1, Socket, State, Module, Option).
-

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.8.1 (Mar 29, 2014)
+
+* Improved
+    * Change the way of checking in a connection
+    * Implemented macros of connection pool for rpc-clients
+    * Bump leo_pod
+
+
 ## 0.8.0 (Feb 18, 2014)
 
 * Fixed bugs and improvements
