@@ -27,7 +27,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
--export([async_call/4,
+-export([start/0,
+         async_call/4,
          call/4, call/5, call/6,
          multicall/4, multicall/5,
          nb_yield/1, nb_yield/2,
@@ -39,10 +40,16 @@
 
 -define(DEF_TIMEOUT, 5000).
 
-
 %%--------------------------------------------------------------------
 %%  APIs
 %%--------------------------------------------------------------------
+%% @doc Launch leo-rpc
+-spec(start() ->
+             ok | {error, any()}).
+start() ->
+    application:start(?MODULE).
+
+
 %% @doc Implements call streams with promises, a type of RPC which does not suspend
 %%      the caller until the result is finished.
 %%      Instead, a key is returned which can be used at a later stage to collect the value.
@@ -209,42 +216,45 @@ exec(Node, ParamsBin, Timeout) ->
                               _ ->
                                   {[], 0}
                           end,
-
     case Node1 of
         [] ->
             {error, invalid_node};
         _ ->
             PodName = leo_rpc_client_utils:get_client_worker_id(Node1, Port1),
-            case whereis(PodName) of
-                undefined ->
-                    leo_rpc_client_sup:start_child(Node1, IP1, Port1);
-                _ ->
-                    void
-            end,
-
+            Ret = case whereis(PodName) of
+                      undefined ->
+                          case leo_rpc_client_sup:start_child(Node1, IP1, Port1) of
+                              ok ->
+                                  ok;
+                              {error, Cause} ->
+                                  {error, Cause}
+                          end;
+                      _ ->
+                          ok
+                  end,
             %% execute a requested function with a remote-node
-            exec_1(PodName, ParamsBin, Timeout)
+            exec_1(Ret, PodName, ParamsBin, Timeout)
     end.
 
-exec_1(PodName, ParamsBin, Timeout) ->
-    case leo_pod:checkout(PodName) of
+exec_1({error, Cause},_PodName,_ParamsBin,_Timeout) ->
+    {error, Cause};
+exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
+    case catch leo_pod:checkout(PodName) of
         {ok, ServerRef} ->
-            try
-                case catch gen_server:call(
-                             ServerRef, {request, ParamsBin}, Timeout) of
-                    {'EXIT', Cause} ->
-                        {error, Cause};
-                    Ret ->
-                        Ret
-                end
-            after
-                catch gen_server:call(ServerRef, cancel),
-                leo_pod:checkin_async(PodName, ServerRef)
-            end;
+            Reply = case catch gen_server:call(
+                                 ServerRef, {request, ParamsBin}, Timeout) of
+                        {'EXIT', Cause} ->
+                            {error, Cause};
+                        Ret_1 ->
+                            Ret_1
+                    end,
+            ok = leo_pod:checkin(PodName, ServerRef),
+            Reply;
+        {error, ?ERROR_DUPLICATE_DEST} = Error ->
+            Error;
         _ ->
-            %% retry
-            timer:sleep(50),
-            exec_1(PodName, ParamsBin, Timeout)
+            timer:sleep(500),
+            exec_1(Ret, PodName, ParamsBin, Timeout)
     end.
 
 

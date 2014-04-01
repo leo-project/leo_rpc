@@ -46,19 +46,19 @@
 -define(DEF_LISTEN_IP,      "127.0.0.1").
 -define(DEF_LISTEN_PORT,    13075).
 -define(DEF_LISTEN_TIMEOUT, 5000).
-
 -define(DEF_CLIENT_POOL_NAME_PREFIX, "leo_rpc_client_").
--define(DEF_CLIENT_CONN_POOL_SIZE, 64).
--define(DEF_CLIENT_CONN_BUF_SIZE,  32).
-
+-define(DEF_CLIENT_CONN_POOL_SIZE, 4).
+-define(DEF_CLIENT_CONN_BUF_SIZE,  4).
 -define(DEF_CLIENT_WORKER_SUP_ID, 'leo_rpc_client_worker').
--define(DEF_CLIENT_WORKER_POOL_SIZE, 64).
--define(DEF_CLIENT_WORKER_BUF_SIZE,  64).
 
 -record(rpc_info, { module :: atom(),
                     method :: atom(),
                     params = [] :: list(any())
                   }).
+
+
+%% Errors
+-define(ERROR_DUPLICATE_DEST, 'duplicate_destination').
 
 
 %% @doc: rpc-connection/rpc-client related definitions
@@ -95,3 +95,21 @@
 -define(DEF_INSPECT_INTERVAL, 5000).
 -endif.
 
+
+%% @doc Retrieve connection pool size for rpc-client
+-define(env_rpc_con_pool_size(),
+        case application:get_env(leo_rpc, 'connection_pool_size') of
+            {ok, _ENV_CON_POOL_SIZE} ->
+                _ENV_CON_POOL_SIZE;
+            _ ->
+                ?DEF_CLIENT_CONN_POOL_SIZE
+        end).
+
+%% @doc Retrieve connection buffer size for rpc-client
+-define(env_rpc_con_buffer_size(),
+        case application:get_env(leo_rpc, 'connection_buffer_size') of
+            {ok, _ENV_CON_BUF_SIZE} ->
+                _ENV_CON_BUF_SIZE;
+            _ ->
+                ?DEF_CLIENT_CONN_BUF_SIZE
+        end).

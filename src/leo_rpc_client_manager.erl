@@ -30,7 +30,9 @@
 
 %% API
 -export([start_link/1, stop/0]).
--export([inspect/0, inspect/1, status/0, connected_nodes/0]).
+-export([is_exists/2,
+         inspect/0, inspect/1,
+         status/0, connected_nodes/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -41,6 +43,7 @@
           interval = 0 :: pos_integer(),
           active = [] :: list(tuple())
          }).
+
 
 %% ===================================================================
 %% APIs
@@ -55,6 +58,9 @@ stop() ->
     gen_server:call(?MODULE, stop).
 
 
+is_exists(IP, Port) ->
+    gen_server:call(?MODULE, {is_exists, IP, Port}).
+
 inspect() ->
     gen_server:cast(?MODULE, inspect).
 
@@ -68,7 +74,6 @@ connected_nodes() ->
     gen_server:call(?MODULE, connected_nodes).
 
 
-
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -79,6 +84,11 @@ init([Interval]) ->
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
+
+
+handle_call({is_exists, IP, Port},_From, State) ->
+    Ret = is_exists_1(IP, Port),
+    {reply, Ret, State};
 
 handle_call({inspect, Node}, _From, State) ->
     Node1 = case is_atom(Node) of
@@ -151,6 +161,37 @@ defer_inspect(Interval) ->
     timer:apply_after(Interval, ?MODULE, inspect, []).
 
 
+%% @doc Retrieve destinations by ip and port
+%%
+is_exists_1(IP, Port) ->
+    case ets:first(?TBL_RPC_CONN_INFO) of
+        '$end_of_table' ->
+            false;
+        Key ->
+            case ets:lookup(?TBL_RPC_CONN_INFO, Key) of
+                [{_, #rpc_conn{ip = IP,
+                               port = Port}}|_] ->
+                    true;
+                _ ->
+                    is_exists_2(Key, IP, Port)
+            end
+    end.
+
+is_exists_2(Key, IP, Port) ->
+    case ets:next(?TBL_RPC_CONN_INFO, Key) of
+        '$end_of_table' ->
+            false;
+        Key_1 ->
+            case ets:lookup(?TBL_RPC_CONN_INFO, Key) of
+                [{_, #rpc_conn{ip = IP,
+                               port = Port}}|_] ->
+                    true;
+                _ ->
+                    is_exists_2(Key_1, IP, Port)
+            end
+    end.
+
+
 %% @doc Inspect rpc-workers's status
 %%
 -spec(inspect_fun(pos_integer()) ->
@@ -161,10 +202,10 @@ inspect_fun(Interval) ->
 inspect_fun(Interval, IsDefer) ->
     {ok, Active} = inspect_fun_1([]),
     case IsDefer of
-        true  -> 
+        true  ->
             {ok, TRef} = defer_inspect(Interval),
             {ok, Active, TRef};
-        false -> 
+        false ->
             {ok, Active, undefined}
     end.
 
