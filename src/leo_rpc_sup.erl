@@ -43,12 +43,15 @@
 start_link() ->
     case supervisor:start_link({local, ?MODULE}, ?MODULE, []) of
         {ok,_Pid} = Ret ->
-            leo_rpc_protocol:start_link(),
-            Ret;
+            case leo_rpc_protocol:start_link() of
+                {error, Cause} ->
+                    {error, Cause};
+                _ ->
+                    Ret
+            end;
         Error ->
             Error
     end.
-
 
 stop() ->
     case whereis(?MODULE) of
