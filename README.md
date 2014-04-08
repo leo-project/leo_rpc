@@ -1,6 +1,6 @@
 # **leo_rpc**
 
-An original rpc library, interface of which is similar to Erlnag's RPC. Aim to connect with over 100 nodes.
+An original rpc library, interface of which is similar to Erlang's RPC. Aim to connect with over 100 nodes.
 
 ## Usage
 
@@ -37,4 +37,4 @@ An original rpc library, interface of which is similar to Erlnag's RPC. Aim to c
 
 ## License
 
-leo_pod's license is "Apache License Version 2.0"
+leo_rpc's license is "Apache License Version 2.0"
