@@ -44,7 +44,7 @@ all_test_() ->
 
 setup() ->
     [] = os:cmd("epmd -daemon"),
-    Node = 'node_0@127.0.0.1',
+    Node = 'node_0@127.0.0.1:13075',
     net_kernel:start([Node, longnames]),
 
     ok = application:start(leo_rpc),
