@@ -27,7 +27,7 @@ $ make
 
 Then, start Erlang shells.
 
-```erl-sh
+```text
 $ cd leo_rpc_1
 $ erl -pa ./ebin/ ./deps/*/ebin -name 'node_1@127.0.0.1'
 Erlang R16B03-1 (erts-5.10.4) [source] [64-bit halfword] [smp:4:4] [async-threads:10] [kernel-poll:false]
@@ -43,7 +43,7 @@ ok
 13076
 ```
 
-```erl-sh
+```text
 $ cd leo_rpc_2
 $ erl -pa ./ebin/ ./deps/*/ebin -name 'node_2@127.0.0.1'
 Erlang R16B03-1 (erts-5.10.4) [source] [64-bit halfword] [smp:4:4] [async-threads:10] [kernel-poll:false]
@@ -59,7 +59,7 @@ ok
 13077
 ```
 
-```erl-sh
+```text
 $ cd leo_rpc_0
 $ erl -pa ./ebin/ ./deps/*/ebin -name 'node_0@127.0.0.1'
 Erlang R16B03-1 (erts-5.10.4) [source] [64-bit halfword] [smp:4:4] [async-threads:10] [kernel-poll:false]
@@ -73,7 +73,10 @@ ok
 []
 (node_1@127.0.0.1)4> leo_rpc:port().
 13075
+```
+Then, we can try various rpc commands as follow.
 
+```erl-sh
 %% Execute rpc-call to a remote-node
 (node_0@127.0.0.1)5> leo_rpc:call('node_1@127.0.0.1:13076', leo_rpc, node, []).
 'node_1@127.0.0.1'
