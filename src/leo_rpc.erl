@@ -178,14 +178,7 @@ status() ->
 %% @doc Returns the name of the local node. If the node is not alive, nonode@nohost is returned instead.
 -spec(node() ->
              'nonode@nohost' | atom()).
-node() ->
-    case application:get_env(?MODULE, 'node') of
-        undefined ->
-            'nonode@nohost';
-        {ok, Node} ->
-            Node
-    end.
-
+node() -> erlang:node().
 
 %% @doc Returns a list of all connected nodes in the system, excluding the local node.
 nodes() ->
