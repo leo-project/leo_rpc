@@ -83,10 +83,11 @@ ok
 'node_2@127.0.0.1'
 
 %% Execute async rpc-call to a remote-node
-(node_0@127.0.0.1)8> RPCKey = leo_rpc:async_call('node_0@127.0.0.1:13075', leo_rpc, node, []).
+(node_0@127.0.0.1)8> RPCKey = leo_rpc:async_call('node_1@127.0.0.1:13076', leo_rpc, node, []).
 <0.252.0>
+%% Get the value. (You have to type the following expression in 5 senconds after the above commands.)
 (node_0@127.0.0.1)9> leo_rpc:nb_yield(RPCKey).
-{value,'node_0@127.0.0.1'}
+{value,'node_1@127.0.0.1'}
 
 %% Execute multi-call to plural nodes
 (node_0@127.0.0.1)10> leo_rpc:multicall(['node_0@127.0.0.1:13075', 'node_1@127.0.0.1:13076', 'node_2@127.0.0.1:13077'], 'leo_date', 'clock', []).
