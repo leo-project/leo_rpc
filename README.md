@@ -39,7 +39,8 @@ ok
 'node_1@127.0.0.1'
 (node_1@127.0.0.1)3> leo_rpc:nodes().
 []
-(node_1@127.0.0.1)4>```
+(node_1@127.0.0.1)4> leo_rpc:port().
+13076
 ```
 
 ```erl-sh
@@ -54,7 +55,8 @@ ok
 'node_2@127.0.0.1'
 (node_2@127.0.0.1)3> leo_rpc:nodes().
 []
-(node_2@127.0.0.1)4>```
+(node_2@127.0.0.1)4> leo_rpc:port().
+13077
 ```
 
 ```erl-sh
@@ -69,26 +71,33 @@ ok
 'node_0@127.0.0.1'
 (node_0@127.0.0.1)3> leo_rpc:nodes().
 []
+(node_1@127.0.0.1)4> leo_rpc:port().
+13075
 
 %% Execute rpc-call to a remote-node
-(node_0@127.0.0.1)4> leo_rpc:call('node_1@127.0.0.1', leo_rpc, node, []).
+(node_0@127.0.0.1)5> leo_rpc:call('node_1@127.0.0.1:13076', leo_rpc, node, []).
 'node_1@127.0.0.1'
-(node_0@127.0.0.1)5> leo_rpc:nodes().
+(node_0@127.0.0.1)6> leo_rpc:nodes().
 [node_1]
-(node_0@127.0.0.1)6> leo_rpc:call('node_2@127.0.0.1', leo_rpc, node, []).
+(node_0@127.0.0.1)7> leo_rpc:call('node_2@127.0.0.1:13077', leo_rpc, node, []).
 'node_2@127.0.0.1'
-(node_0@127.0.0.1)7> leo_rpc:nodes().
-[node_1, node_2]
 
 %% Execute async rpc-call to a remote-node
-(node_0@127.0.0.1)8> RPCKey = leo_rpc:async_call('node_1@127.0.0.1', leo_rpc, node, []).
+(node_0@127.0.0.1)8> RPCKey = leo_rpc:async_call('node_0@127.0.0.1:13075', leo_rpc, node, []).
 <0.252.0>
 (node_0@127.0.0.1)9> leo_rpc:nb_yield(RPCKey).
-{value,'node_1@127.0.0.1'}
-
+{value,'node_0@127.0.0.1'}
 
 %% Execute multi-call to plural nodes
-(node_0@127.0.0.1)10> leo_rpc:multicall(['node_1@127.0.0.1', 'node_2@127.0.0.1'], 'leo_date', 'clock', []).
+(node_0@127.0.0.1)10> leo_rpc:multicall(['node_0@127.0.0.1:13075', 'node_1@127.0.0.1:13076', 'node_2@127.0.0.1:13077'], 'leo_date', 'clock', []).
+{[1397709777556582,1397709777555220,1397709777555166],[]}
+
+(node_0@127.0.0.1)11> leo_rpc:nodes().
+[node_0,node_1,node_2]
+(node_0@127.0.0.1)12> leo_rpc:status().
+{ok,[{node_0,node_0,13075,4,4},
+     {node_1,node_1,13076,4,4},
+     {node_2,node_2,13077,4,4}]}
 ```
 
 ## License
