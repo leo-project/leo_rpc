@@ -222,7 +222,8 @@ inspect_fun_2(Key, Acc) ->
     [{_, #rpc_conn{host = Host,
                    port = Port,
                    manager_ref = ManagerRef}}|_] = ets:lookup(?TBL_RPC_CONN_INFO, Key),
-    {ok, Status} = gen_server:call(ManagerRef, status),
+    {ok, RawStatus} = gen_server:call(ManagerRef, raw_status),
+    Status = leo_misc:get_value('worker_pids', RawStatus, []),
     {ok, Active} = inspect_fun_3(Status, 0),
     inspect_fun_1([{Key, Host, Port, Active, length(Status)}|Acc], Key).
 
