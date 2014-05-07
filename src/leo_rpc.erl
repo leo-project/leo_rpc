@@ -33,7 +33,7 @@
          multicall/4, multicall/5,
          nb_yield/1, nb_yield/2,
          cast/4,
-         ping/1, status/0, node/0, nodes/0
+         ping/1, status/0, node/0, nodes/0, port/0
         ]).
 
 -export([loop_1/4, loop_2/4]).
@@ -178,20 +178,21 @@ status() ->
 %% @doc Returns the name of the local node. If the node is not alive, nonode@nohost is returned instead.
 -spec(node() ->
              'nonode@nohost' | atom()).
-node() ->
-    case application:get_env(?MODULE, 'node') of
-        undefined ->
-            'nonode@nohost';
-        {ok, Node} ->
-            Node
-    end.
-
+node() -> erlang:node().
 
 %% @doc Returns a list of all connected nodes in the system, excluding the local node.
 nodes() ->
     {ok, Nodes} = leo_rpc_client_manager:connected_nodes(),
     Nodes.
 
+%% @doc Returns the port number of the local node.
+-spec(port() ->
+             integer()).
+port() ->
+  case application:get_env(leo_rpc, listen_port) of
+    {ok, Port} -> Port;
+    _  -> ?DEF_LISTEN_PORT
+  end.
 
 %%--------------------------------------------------------------------
 %%  Internal Function
@@ -210,9 +211,9 @@ exec(Node, ParamsBin, Timeout) ->
                               [_Node, IP, Port] ->
                                   {list_to_atom(_Node), IP, list_to_integer(Port)};
                               [_Node, IP] ->
-                                  {list_to_atom(_Node), IP, ?DEF_LISTEN_PORT};
+                                  {list_to_atom(_Node), IP, leo_rpc:port()};
                               [_Node] ->
-                                  {list_to_atom(_Node), ?DEF_LISTEN_IP, ?DEF_LISTEN_PORT};
+                                  {list_to_atom(_Node), ?DEF_LISTEN_IP, leo_rpc:port()};
                               _ ->
                                   {[], 0}
                           end,

@@ -26,7 +26,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--define(REMOTE_NODE, 'node_0@127.0.0.1').
+-define(REMOTE_NODE, erlang:node()).
 
 new(_Id) ->
     catch application:start(leo_rpc),

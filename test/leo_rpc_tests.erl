@@ -44,7 +44,7 @@ all_test_() ->
 
 setup() ->
     [] = os:cmd("epmd -daemon"),
-    Node = 'node_0@127.0.0.1',
+    Node = erlang:node(),
     net_kernel:start([Node, longnames]),
 
     ok = application:start(leo_rpc),
@@ -168,7 +168,7 @@ others_(Node) ->
                       %% Others
                       ?assertMatch({_,_,_},  leo_rpc:call(Node, 'erlang', 'now', [])),
                       ?assertEqual(pong, leo_rpc:ping(Node)),
-                      ?assertEqual('node_0@127.0.0.1', leo_rpc:node()),
+                      ?assertEqual(erlang:node(), leo_rpc:node()),
                       ok
                   end}.
 
