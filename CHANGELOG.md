@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.8.2 (May 7, 2014)
+
+* Improved
+    * Bump leo_pod to 0.6.0
+    * Modified README
+
 ## 0.8.1 (Mar 29, 2014)
 
 * Improved
