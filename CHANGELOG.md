@@ -1,10 +1,17 @@
 # CHANGELOG
 
-## 0.8.2 (May 7, 2014)
+## 0.8.3 (May 7, 2014)
 
 * Improved
     * Bump leo_pod to 0.6.0
     * Modified README
+
+
+## 0.8.2 (May 7, 2014)
+
+* Fixed
+    * Handle errors where leo_rpc_server start
+
 
 ## 0.8.1 (Mar 29, 2014)
 
