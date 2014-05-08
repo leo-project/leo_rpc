@@ -199,7 +199,7 @@ port() ->
 %%--------------------------------------------------------------------
 %% @doc Execute rpc
 %% @private
--spec(exec(atom(), binary(), pos_integer()) ->
+-spec(exec(string()|atom(), binary(), non_neg_integer()) ->
              {ok, any()} | {error, any()}).
 exec(Node, ParamsBin, Timeout) when is_atom(Node) ->
     Node1 = atom_to_list(Node),
@@ -215,7 +215,7 @@ exec(Node, ParamsBin, Timeout) ->
                               [_Node] ->
                                   {list_to_atom(_Node), ?DEF_LISTEN_IP, leo_rpc:port()};
                               _ ->
-                                  {[], 0}
+                                  {[], 0, 0}
                           end,
     case Node1 of
         [] ->
