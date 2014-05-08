@@ -1,7 +1,9 @@
 # CHANGELOG
 
-## 0.8.3 (May 7, 2014)
+## 0.8.4 (May 7, 2014)
 
+* Fixed
+    * Fixed wrong type definitions and invalid return value
 * Improved
     * Bump leo_pod to 0.6.0
     * Modified README
