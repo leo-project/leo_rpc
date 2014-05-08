@@ -34,7 +34,7 @@
 %% ===================================================================
 %% @doc Retrieve client-worker's id by host and port
 %%
--spec(get_client_worker_id(string(), pos_integer()) ->
+-spec(get_client_worker_id(string()|atom(), pos_integer()) ->
              atom()).
 get_client_worker_id(Host, Port) when is_atom(Host) ->
     get_client_worker_id(atom_to_list(Host), Port);
