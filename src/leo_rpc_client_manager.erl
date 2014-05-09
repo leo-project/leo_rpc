@@ -155,8 +155,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 %% @doc Inspect rpc-workers's status
 %%
--spec(defer_inspect(pos_integer()) ->
-             ok).
+-spec(defer_inspect(non_neg_integer()) ->
+             {'error',_} | {'ok',timer:tref()}).
 defer_inspect(Interval) ->
     timer:apply_after(Interval, ?MODULE, inspect, []).
 
@@ -195,7 +195,7 @@ is_exists_2(Key, IP, Port) ->
 %% @doc Inspect rpc-workers's status
 %%
 -spec(inspect_fun(pos_integer()) ->
-             ok).
+             {'ok', [{_, _, _, _, _}], 'undefined' | timer:tref()}).
 inspect_fun(Interval) ->
     inspect_fun(Interval, true).
 

@@ -40,11 +40,11 @@
           host   :: string(),
           ip     :: pos_integer(),
           port   :: integer(),
-          socket :: reference()|undefined,
+          socket :: port()|undefined,
           reconnect_sleep :: integer(),
           buf    :: binary(),
-          nreq   :: pos_integer(),
-          pid_from :: pid()|undefined
+          nreq   :: non_neg_integer(),
+          pid_from :: {pid(), _}|undefined
          }).
 
 
@@ -110,8 +110,8 @@ handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
     case recv(Socket, <<Buf/binary, Bs/binary>>) of
         {error,_Cause} ->
             case connect(State) of
-                {ok, Socket} ->
-                    {noreply, State#state{socket = Socket}};
+                {ok, NewState} ->
+                    {noreply, NewState};
                 _ ->
                     {noreply, State#state{socket = undefined}}
             end;
@@ -178,7 +178,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% ===================================================================
 %% @doc: Send the given request to the rpc-server
 %% @ptivate
--spec(exec(iolist(), pid(), #state{}) ->
+-spec(exec(iolist(), {pid(), _}, #state{}) ->
              {noreply, #state{}} | {reply, Reply::any(), #state{}}).
 exec(Req, From, #state{socket = undefined} = State) ->
     case connect(State) of
@@ -206,7 +206,7 @@ exec(Req, From, #state{socket = Socket} = State) ->
 
 %% @doc: Handle the response coming from Server
 %% @private
--spec(handle_response(binary(), #state{}) ->
+-spec(handle_response(_, #state{}) ->
              #state{}).
 handle_response(Data, #state{pid_from = From,
                              socket = _Socket,
@@ -264,7 +264,7 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
 %%    "/r/n"
 %%    >>
 %%
--spec(recv(pid(), binary()) ->
+-spec(recv(port(), binary()) ->
              {value, any(), binary()} | {error, any()}).
 recv(Socket, Bin) ->
     Size = byte_size(Bin),
