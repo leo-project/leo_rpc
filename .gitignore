@@ -2,3 +2,6 @@
 deps/
 ebin/
 test/*.beam
+.leo_rpc_dialyzer_plt
+leo_rpc.dot
+leo_rpc.png
