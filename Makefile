@@ -2,7 +2,7 @@
 
 
 REBAR := ./rebar
-APPS = erts kernel stdlib sasl crypto compiler inets mnesia public_key runtime_tools snmp syntax_tools tools xmerl webtool deps/*/include deps/*/src
+APPS = erts kernel stdlib sasl crypto compiler inets mnesia public_key runtime_tools snmp syntax_tools tools xmerl webtool
 PLT_FILE = .leo_rpc_dialyzer_plt
 DOT_FILE = leo_rpc.dot
 CALL_GRAPH_FILE = leo_rpc.png
@@ -24,10 +24,10 @@ check_plt:
 	dialyzer --check_plt --plt $(PLT_FILE) --apps $(APPS)
 build_plt:
 	@$(REBAR) compile
-	dialyzer --build_plt --output_plt $(PLT_FILE) --apps $(APPS)
+	dialyzer --build_plt --output_plt $(PLT_FILE) --apps $(APPS) deps/*/ebin
 dialyzer:
 	@$(REBAR) compile
-	dialyzer --plt $(PLT_FILE) --dump_callgraph $(DOT_FILE) -r ebin/
+	dialyzer --plt $(PLT_FILE) -r ebin/ --dump_callgraph $(DOT_FILE)
 doc: compile
 	@$(REBAR) doc
 callgraph: graphviz
