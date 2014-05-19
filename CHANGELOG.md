@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.8.5 (May 19, 2014)
+
+* Improved
+    * Bump leo_commons and leo_pod
+    * Dialyzer support
+
+
 ## 0.8.4 (May 7, 2014)
 
 * Fixed
