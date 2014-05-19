@@ -51,18 +51,18 @@ start_link() ->
 
 
 stop() ->
-    case whereis(?MODULE) of
-        Pid when is_pid(Pid) ->
-            exit(Pid, shutdown),
-            ok;
-        _ ->
-            not_started
-    end.
+    ok.
 
 
+%% @doc Launch a child worker
+%%
+-spec(start_child(atom(), string(), pos_integer()) ->
+             ok | {error, any()}).
 start_child(Host, IP, Port) ->
     start_child(Host, IP, Port, 0).
 
+-spec(start_child(atom(), string(), pos_integer(), non_neg_integer()) ->
+             ok | {error, any()}).
 start_child(Host, IP, Port, ReconnectSleep) ->
     Ret = leo_rpc_client_manager:is_exists(IP, Port),
     start_child_1(Ret, Host, IP, Port, ReconnectSleep).
@@ -129,3 +129,7 @@ init([]) ->
                 ],
     {ok, { {one_for_one, 5, 10}, ChildSpec} }.
 
+
+%% ===================================================================
+%% Internal Functions
+%% ===================================================================

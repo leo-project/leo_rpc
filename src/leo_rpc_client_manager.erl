@@ -41,7 +41,7 @@
 -record(state, {
           tref = undefined :: timer:tref(),
           interval = 0 :: pos_integer(),
-          active = [] :: list(tuple())
+          active = []  :: [tuple()]
          }).
 
 
@@ -53,23 +53,41 @@
 start_link(Interval) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Interval], []).
 
-
 stop() ->
     gen_server:call(?MODULE, stop).
 
 
+%% @doc Is already ip/port exists
+-spec(is_exists(string(), pos_integer()) ->
+             boolean()).
 is_exists(IP, Port) ->
     gen_server:call(?MODULE, {is_exists, IP, Port}).
 
+
+%% @doc Inspect whether a node is running or not
+-spec(inspect() ->
+             ok).
 inspect() ->
     gen_server:cast(?MODULE, inspect).
 
+
+%% @doc Inspect whether the node is running or not
+-spec(inspect(atom()) ->
+             active | inactive).
 inspect(Node) ->
     gen_server:call(?MODULE, {inspect, Node}).
 
+
+%% @doc Retrieve the current status
+-spec(status() ->
+             {ok, [tuple()]}).
 status() ->
     gen_server:call(?MODULE, status).
 
+
+%% @doc Retrieve connected nodes
+-spec(connected_nodes() ->
+             {ok, [tuple()]}).
 connected_nodes() ->
     gen_server:call(?MODULE, connected_nodes).
 
@@ -155,8 +173,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 %% @doc Inspect rpc-workers's status
 %%
--spec(defer_inspect(pos_integer()) ->
-             ok).
+-spec(defer_inspect(non_neg_integer()) ->
+             {'error',_} | {'ok',timer:tref()}).
 defer_inspect(Interval) ->
     timer:apply_after(Interval, ?MODULE, inspect, []).
 
@@ -195,7 +213,7 @@ is_exists_2(Key, IP, Port) ->
 %% @doc Inspect rpc-workers's status
 %%
 -spec(inspect_fun(pos_integer()) ->
-             ok).
+             {'ok', [{_, _, _, _, _}], 'undefined' | timer:tref()}).
 inspect_fun(Interval) ->
     inspect_fun(Interval, true).
 

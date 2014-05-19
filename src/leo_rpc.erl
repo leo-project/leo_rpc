@@ -88,12 +88,12 @@ call(From, Node, Mod, Method, Args, Timeout) ->
 
 %% @doc A multicall is an RPC which is sent concurrently from one client to multiple servers.
 %%      This is useful for collecting some information from a set of nodes.
--spec(multicall(atom(), atom(), atom(), list(any())) ->
+-spec(multicall([atom()], atom(), atom(), [any()]) ->
              any() | {badrpc, any()}).
 multicall(Nodes, Mod, Method, Args) ->
     multicall(Nodes, Mod, Method, Args, ?DEF_TIMEOUT).
 
--spec(multicall(atom(), atom(), atom(), list(any()), integer()) ->
+-spec(multicall([atom()], atom(), atom(), [any()], integer()) ->
              any() | {badrpc, any()}).
 multicall(Nodes, Mod, Method, Args, Timeout) ->
     Self = self(),

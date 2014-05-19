@@ -56,8 +56,8 @@ start_link() ->
 stop() ->
     case whereis(?MODULE) of
         Pid when is_pid(Pid) ->
-            exit(Pid, shutdown),
-            ok;
+            List = supervisor:which_children(Pid),
+            stop_workers(List);
         _ ->
             not_started
     end.
@@ -73,3 +73,19 @@ init([]) ->
     ChildSpecs = [ClientSupSpec],
     {ok, { {one_for_one, 5, 10}, ChildSpecs} }.
 
+
+
+%% ===================================================================
+%% Internal Functions
+%% ===================================================================
+%% @doc Close woker processes
+%% @private
+-spec(stop_workers([tuple()]) ->
+             ok).
+stop_workers([]) ->
+    ok;
+stop_workers([{_Id,_Pid, supervisor, [leo_rpc_client_sup = Mod]}|Rest]) ->
+    _ = Mod:stop(),
+    stop_workers(Rest);
+stop_workers([_|Rest]) ->
+    stop_workers(Rest).

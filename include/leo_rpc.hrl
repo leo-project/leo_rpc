@@ -84,7 +84,7 @@
           shutdown                = 2000  :: pos_integer(),
           accept_timeout          = infinity,
           accept_error_sleep_time = 3000  :: pos_integer(),
-          recv_length             = 0     :: pos_integer(),
+          recv_length             = 0     :: non_neg_integer(),
           recv_timeout            = 5000  :: pos_integer()
          }).
 
