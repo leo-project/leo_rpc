@@ -63,6 +63,8 @@
 start_link([Host, IP, Port, ReconnectSleepInterval]) ->
     gen_server:start_link(?MODULE, [Host, IP, Port, ReconnectSleepInterval], []).
 
+-spec(stop(pid()) ->
+             ok | {error, any()}).
 stop(ServerRef) ->
     gen_server:call(ServerRef, stop).
 

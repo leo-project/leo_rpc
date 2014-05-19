@@ -28,7 +28,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% Application callbacks
--export([start/2, stop/1, profile_output/0]).
+-export([start/2, prep_stop/1, stop/1, profile_output/0]).
 
 
 %% ===================================================================
@@ -38,6 +38,9 @@ start(_StartType, _StartArgs) ->
     consider_profiling(),
     leo_rpc_sup:start_link().
 
+prep_stop(_State) ->
+    leo_rpc_sup:stop(),
+    ok.
 
 stop(_State) ->
     ok.
