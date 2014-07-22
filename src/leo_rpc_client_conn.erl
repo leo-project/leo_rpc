@@ -44,7 +44,8 @@
           reconnect_sleep :: integer(),
           buf    :: binary(),
           nreq   :: non_neg_integer(),
-          pid_from :: {pid(), _}|undefined
+          pid_from :: {pid(), _}|undefined,
+          finalizer :: fun()|undefined
          }).
 
 
@@ -86,8 +87,8 @@ init([Host, IP, Port, ReconnectSleepInterval]) ->
             {stop, {connection_error, Reason}}
     end.
 
-handle_call({request, Req}, From, State) ->
-    exec(Req, From, State);
+handle_call({request, Req, FinalizerFun}, From, State) ->
+    exec(Req, From, State#state{finalizer = FinalizerFun});
 
 handle_call(cancel, _From, State) ->
     terminate(cancel, State),
@@ -111,12 +112,14 @@ handle_cast(_Msg, State) ->
 handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
     case recv(Socket, <<Buf/binary, Bs/binary>>) of
         {error,_Cause} ->
-            case connect(State) of
-                {ok, NewState} ->
-                    {noreply, NewState};
-                _ ->
-                    {noreply, State#state{socket = undefined}}
-            end;
+            NewState2 = case connect(State) of
+                            {ok, NewState} ->
+                                NewState;
+                            _ ->
+                                State#state{socket = undefined}
+                        end,
+            NewState3 = call_finalizer(NewState2),
+            {noreply, NewState3};
         {value, Value, Rest} ->
             %% The receive buf should be empty
             case Rest of
@@ -138,7 +141,7 @@ handle_info({tcp_error, Socket, Reason}, #state{pid_from = From} = State) ->
       [{module, ?MODULE_STRING}, {function, "handle_info/2"},
        {line, ?LINE}, {body, {tcp_error, Socket, Reason}}]),
     reply({error, Reason}, From),
-    catch gen_tcp:close(Socket),
+    terminate(tcp_error, State),
     {noreply, State#state{pid_from = undefined, socket = undefined, nreq = 0}};
 
 handle_info({tcp_closed, _Socket}, State) ->
@@ -163,14 +166,16 @@ handle_info(_Info, State) ->
     terminate(_Info, State),
     {stop, {unhandled_message, _Info}, State}.
 
-terminate(_Reason, #state{socket = Socket}) ->
+terminate(_Reason, #state{socket = Socket} = State) ->
     case Socket of
         undefined ->
             ok;
         Socket ->
             catch gen_tcp:close(Socket),
             ok
-    end.
+    end,
+    call_finalizer(State),
+    ok.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -190,11 +195,13 @@ exec(Req, From, #state{socket = undefined} = State) ->
                     {noreply, State1#state{pid_from = From}};
                 {error,_Reason} ->
                     spawn(fun() -> reconnect_loop(self(), State) end),
-                    {noreply, State#state{socket = undefined}}
+                    NewState = call_finalizer(State),
+                    {noreply, NewState#state{socket = undefined}}
             end;
         {error,_Reason} ->
             spawn(fun() -> reconnect_loop(self(), State) end),
-            {noreply, State#state{socket = undefined}}
+            NewState = call_finalizer(State),
+            {noreply, NewState#state{socket = undefined}}
     end;
 
 exec(Req, From, #state{socket = Socket} = State) ->
@@ -203,7 +210,8 @@ exec(Req, From, #state{socket = Socket} = State) ->
             {noreply, State#state{pid_from = From}};
         {error,_Reason} ->
             spawn(fun() -> reconnect_loop(self(), State) end),
-            {noreply, State#state{socket = undefined}}
+            NewState = call_finalizer(State),
+            {noreply, NewState#state{socket = undefined}}
     end.
 
 %% @doc: Handle the response coming from Server
@@ -214,7 +222,8 @@ handle_response(Data, #state{pid_from = From,
                              socket = _Socket,
                              nreq   = NumReq} = State) ->
     reply(Data, From),
-    State#state{pid_from = undefined, nreq = NumReq + 1}.
+    NewState = call_finalizer(State),
+    NewState#state{pid_from = undefined, nreq = NumReq + 1}.
 
 %% @doc: Send data to the client
 %% @private
@@ -226,6 +235,14 @@ reply(Value, undefined) ->
 
 reply(Value, From) ->
     gen_server:reply(From, {ok, Value}).
+
+%% @doc: Call finalizer only once
+%% @private
+call_finalizer(#state{finalizer = undefined} = State) ->
+    State;
+call_finalizer(#state{finalizer = Finalizer} = State) ->
+    Finalizer(),
+    State#state{finalizer = undefined}.
 
 %% @doc: Connect to server
 %% @private
