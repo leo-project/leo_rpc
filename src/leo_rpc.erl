@@ -189,10 +189,10 @@ nodes() ->
 -spec(port() ->
              integer()).
 port() ->
-  case application:get_env(leo_rpc, listen_port) of
-    {ok, Port} -> Port;
-    _  -> ?DEF_LISTEN_PORT
-  end.
+    case application:get_env(leo_rpc, listen_port) of
+        {ok, Port} -> Port;
+        _  -> ?DEF_LISTEN_PORT
+    end.
 
 %%--------------------------------------------------------------------
 %%  Internal Function
@@ -243,8 +243,8 @@ exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
     case catch leo_pod:checkout(PodName) of
         {ok, ServerRef} ->
             FinalizerFun = fun() ->
-                ok = leo_pod:checkin(PodName, ServerRef)
-            end,
+                                   ok = leo_pod:checkin(PodName, ServerRef)
+                           end,
             Reply = case catch gen_server:call(
                                  ServerRef, {request, ParamsBin, FinalizerFun}, Timeout) of
                         {'EXIT', Cause} ->

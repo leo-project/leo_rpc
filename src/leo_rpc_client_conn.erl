@@ -113,11 +113,11 @@ handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
     case recv(Socket, <<Buf/binary, Bs/binary>>) of
         {error,_Cause} ->
             NewState2 = case connect(State) of
-                {ok, NewState} ->
-                    NewState;
-                _ ->
-                    State#state{socket = undefined}
-            end,
+                            {ok, NewState} ->
+                                NewState;
+                            _ ->
+                                State#state{socket = undefined}
+                        end,
             NewState3 = call_finalizer(NewState2),
             {noreply, NewState3};
         {value, Value, Rest} ->
