@@ -1,9 +1,16 @@
 # CHANGELOG
 
+## 0.8.8 (July 30, 2014)
+
+* Improved
+    * Bump leo_commons
+
+
 ## 0.8.6 (May 20, 2014)
 
 * Improved
     * Supported OTP 17.0
+
 
 ## 0.8.5 (May 19, 2014)
 
