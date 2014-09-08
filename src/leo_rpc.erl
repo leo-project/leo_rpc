@@ -20,10 +20,10 @@
 %%
 %% ---------------------------------------------------------------------
 %% Leo RPC
-%% 
+%%
 %% @doc leo_rpc is an original RPC library
 %%      whose interface is similar to Erlang's buildin RPC.
-%% @reference [https://github.com/leo-project/leo_rpc/blob/develop/src/leo_rpc.erl]
+%% @reference [https://github.com/leo-project/leo_rpc/blob/develop/master/leo_rpc.erl]
 %% @end
 %%======================================================================
 -module(leo_rpc).
@@ -51,8 +51,8 @@
 %%  APIs
 %%--------------------------------------------------------------------
 %% @doc Launch leo-rpc
--spec start() -> ok | {error, any()}.
-            
+-spec(start() ->
+             ok | {error, any()}).
 start() ->
     application:start(?MODULE).
 
@@ -61,36 +61,35 @@ start() ->
 %%      the caller until the result is finished.
 %%      Instead, a key is returned which can be used at a later stage to collect the value.
 %%      The key can be viewed as a promise to deliver the answer.
-- spec async_call(Node, Mod, Method, Args) -> pid() when
-       Node :: atom(),
-       Mod :: module(),
-       Method :: atom(),
-       Args :: [any()].
-            
+-spec(async_call(Node, Mod, Method, Args) ->
+             pid() when Node   :: atom(),
+                        Mod    :: module(),
+                        Method :: atom(),
+                        Args   :: [any()]).
 async_call(Node, Mod, Method, Args) ->
     erlang:spawn(?MODULE, loop_1, [Node, Mod, Method, Args]).
 
 
 %% @doc Evaluates apply(Module, Function, Args) on the node Node
 %%      and returns the corresponding value Res, or {badrpc, Reason} if the call fails.
--spec call(Node, Mod, Method, Args) -> Ret | {badrpc, any()} when
-       Node :: atom(),
-       Mod :: module(),
-       Method :: atom(),
-       Args :: [any()],
-       Ret :: any().
-                                       
+-spec(call(Node, Mod, Method, Args) ->
+             Ret |
+             {badrpc, any()} when Node :: atom(),
+                                  Mod :: module(),
+                                  Method :: atom(),
+                                  Args :: [any()],
+                                  Ret :: any()).
 call(Node, Mod, Method, Args) ->
     call(Node, Mod, Method, Args, ?DEF_TIMEOUT).
 
--spec call(Node, Mod, Method, Args, Timeout) -> Ret | {badrpc, any()} when
-       Node :: atom(),
-       Mod :: module(),
-       Method :: atom(),
-       Args :: [any()],
-       Timeout :: pos_integer(),
-       Ret :: any().
-
+-spec(call(Node, Mod, Method, Args, Timeout) ->
+             Ret |
+             {badrpc, any()} when Node :: atom(),
+                                  Mod  :: module(),
+                                  Method  :: atom(),
+                                  Args    :: [any()],
+                                  Timeout :: pos_integer(),
+                                  Ret :: any()).
 call(Node, Mod, Method, Args, Timeout) ->
     ParamsBin = leo_rpc_protocol:param_to_binary(Mod, Method, Args),
 
@@ -101,15 +100,15 @@ call(Node, Mod, Method, Args, Timeout) ->
             {badrpc, Cause}
     end.
 
--spec call(From, Node, Mod, Method, Args, Timeout) -> Ret | {badrpc, any()} when
-       From :: pid(),
-       Node :: atom(),
-       Mod :: module(),
-       Method :: atom(),
-       Args :: [any()],
-       Timeout :: pos_integer(),
-       Ret :: any().
-
+-spec(call(From, Node, Mod, Method, Args, Timeout) ->
+             Ret |
+             {badrpc, any()} when From :: pid(),
+                                  Node :: atom(),
+                                  Mod  :: module(),
+                                  Method  :: atom(),
+                                  Args    :: [any()],
+                                  Timeout :: pos_integer(),
+                                  Ret :: any()).
 call(From, Node, Mod, Method, Args, Timeout) ->
     Ret = call(Node, Mod, Method, Args, Timeout),
     erlang:send(From, {Node, Ret}).
@@ -117,24 +116,24 @@ call(From, Node, Mod, Method, Args, Timeout) ->
 
 %% @doc A multicall is an RPC which is sent concurrently from one client to multiple servers.
 %%      This is useful for collecting some information from a set of nodes.
--spec multicall(Nodes, Mod, Method, Args) -> Ret | {badrpc, any()} when
-       Nodes :: [atom()],
-       Mod :: module(),
-       Method :: atom(),
-       Args :: [any()],
-       Ret :: any().
-
+-spec(multicall(Nodes, Mod, Method, Args) ->
+             Ret |
+             {badrpc, any()} when Nodes  :: [atom()],
+                                  Mod    :: module(),
+                                  Method :: atom(),
+                                  Args   :: [any()],
+                                  Ret    :: any()).
 multicall(Nodes, Mod, Method, Args) ->
     multicall(Nodes, Mod, Method, Args, ?DEF_TIMEOUT).
 
--spec multicall(Nodes, Mod, Method, Args, Timeout) -> Ret | {badrpc, any()} when
-       Nodes :: [atom()],
-       Mod :: module(),
-       Method :: atom(),
-       Args :: [any()],
-       Timeout :: pos_integer(),
-       Ret :: [any()].
-
+-spec(multicall(Nodes, Mod, Method, Args, Timeout) ->
+             Ret |
+             {badrpc, any()} when Nodes   :: [atom()],
+                                  Mod     :: module(),
+                                  Method  :: atom(),
+                                  Args    :: [any()],
+                                  Timeout :: pos_integer(),
+                                  Ret     :: [any()]).
 multicall(Nodes, Mod, Method, Args, Timeout) ->
     Self = self(),
     Pid  = erlang:spawn(?MODULE, loop_2,
@@ -147,14 +146,13 @@ multicall(Nodes, Mod, Method, Args, Timeout) ->
             timeout
     end.
 
--spec multicall_1(Nodes, Pid, Mod, Method, Args, Timeout) -> ok when
-       Nodes :: [atom()],
-       Pid :: pid(),
-       Mod :: module(),
-       Method :: atom(),
-       Args :: [any()],
-       Timeout :: pos_integer().
-
+-spec(multicall_1(Nodes, Pid, Mod, Method, Args, Timeout) ->
+             ok when Nodes   :: [atom()],
+                     Pid     :: pid(),
+                     Mod     :: module(),
+                     Method  :: atom(),
+                     Args    :: [any()],
+                     Timeout :: pos_integer()).
 multicall_1([],_Pid,_Mod,_Method,_Args,_Timeout) ->
     ok;
 multicall_1([Node|Rest], Pid, Mod, Method, Args, Timeout) ->
@@ -165,16 +163,16 @@ multicall_1([Node|Rest], Pid, Mod, Method, Args, Timeout) ->
 %% @doc This is able to call non-blocking.
 %%      It returns the tuple {value, Val} when the computation has finished,
 %%      or timeout when Timeout milliseconds has elapsed.
--spec nb_yield(Key) -> {value, any()} | timeout when
-      Key :: pid().
-             
+-spec(nb_yield(Key) ->
+             {value, any()} |
+             timeout when Key :: pid()).
 nb_yield(Key) ->
     nb_yield(Key, ?DEF_TIMEOUT).
 
--spec nb_yield(Key, Timeout) -> {value, any()} | timeout when
-      Key :: pid(),
-      Timeout :: pos_integer().
-
+-spec(nb_yield(Key, Timeout) ->
+             {value, any()} |
+             timeout when Key :: pid(),
+                          Timeout :: pos_integer()).
 nb_yield(Key, Timeout) when is_pid(Key) ->
     case erlang:is_process_alive(Key) of
         false ->
@@ -198,12 +196,11 @@ nb_yield(_,_) ->
 
 %% @doc No response is delivered and the calling process is not suspended
 %%      until the evaluation is complete, as is the case with call/4,5.
--spec cast(Node, Mod, Method, Args) -> true when
-       Node :: atom(),
-       Mod :: module(),
-       Method :: atom(),
-       Args :: [any()].
-
+-spec(cast(Node, Mod, Method, Args) ->
+             true when Node :: atom(),
+                       Mod :: module(),
+                       Method :: atom(),
+                       Args :: [any()]).
 cast(Node, Mod, Method, Args) ->
     _ = spawn(?MODULE, call, [Node, Mod, Method, Args]),
     true.
@@ -211,9 +208,8 @@ cast(Node, Mod, Method, Args) ->
 
 %% @doc Tries to set up a connection to Node.
 %%      Returns pang if it fails, or pong if it is successful.
--spec ping(Node) -> pong | pang when
-      Node :: atom().
-             
+-spec(ping(Node) ->
+             pong | pang when Node :: atom()).
 ping(Node) ->
     case leo_rpc_client_manager:inspect(Node) of
         active ->
@@ -224,45 +220,46 @@ ping(Node) ->
 
 
 %% @doc Retrieve status of active connections.
--spec status() -> {ok, list(#rpc_info{})} | {error, any()}.
-
+-spec(status() ->
+             {ok, list(#rpc_info{})} |
+             {error, any()}).
 status() ->
     leo_rpc_client_manager:status().
 
 
 %% @doc Returns the name of the local node. The default name is <code>nonode@nohost</code>.
--spec node() -> Node when
-      Node :: atom().
-
+-spec(node() ->
+             Node when Node :: atom()).
 node() -> erlang:node().
 
-%% @doc Returns a list of all connected nodes in the system, excluding the local node.
--spec nodes() -> Nodes when
-      Nodes :: [atom()].
 
+%% @doc Returns a list of all connected nodes in the system, excluding the local node.
+-spec(nodes() ->
+             Nodes when Nodes :: [atom()]).
 nodes() ->
     {ok, Nodes} = leo_rpc_client_manager:connected_nodes(),
     Nodes.
 
 %% @doc Returns the port number of the local node.
--spec port() -> pos_integer().
-    
+-spec(port() ->
+             pos_integer()).
 port() ->
     case application:get_env(leo_rpc, listen_port) of
         {ok, Port} -> Port;
         _  -> ?DEF_LISTEN_PORT
     end.
 
+
 %%--------------------------------------------------------------------
 %%  Internal Function
 %%--------------------------------------------------------------------
 %% @doc Execute rpc
 %% @private
--spec exec(Node, ParamsBin, Timeout) -> {ok, any()} | {error, any()} when
-      Node :: string() | atom(),
-      ParamsBin :: binary(),
-      Timeout :: pos_integer().
-             
+-spec(exec(Node, ParamsBin, Timeout) ->
+             {ok, any()} |
+             {error, any()} when Node :: string() | atom(),
+                                 ParamsBin :: binary(),
+                                 Timeout :: pos_integer()).
 exec(Node, ParamsBin, Timeout) when is_atom(Node) ->
     Node1 = atom_to_list(Node),
     exec(Node1, ParamsBin, Timeout);
@@ -299,13 +296,12 @@ exec(Node, ParamsBin, Timeout) ->
             exec_1(Ret, PodName, ParamsBin, Timeout)
     end.
 
--spec exec_1(Ret1,PodName,ParamsBin,Timeout) -> Ret2 when
-      Ret1 :: ok | {ok, any()} | {error, any()},
-      PodName :: atom(),
-      ParamsBin :: binary(),
-      Timeout :: pos_integer(),
-      Ret2 :: {ok, any()} | {error, any()}.
-             
+-spec(exec_1(Ret1,PodName,ParamsBin,Timeout) ->
+             Ret2 when Ret1 :: ok | {ok, any()} | {error, any()},
+                       PodName :: atom(),
+                       ParamsBin :: binary(),
+                       Timeout :: pos_integer(),
+                       Ret2 :: {ok, any()} | {error, any()}).
 exec_1({error, Cause},_PodName,_ParamsBin,_Timeout) ->
     {error, Cause};
 exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
@@ -315,7 +311,9 @@ exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
                                    ok = leo_pod:checkin(PodName, ServerRef)
                            end,
             Reply = case catch gen_server:call(
-                                 ServerRef, {request, ParamsBin, FinalizerFun}, Timeout) of
+                                 ServerRef,
+                                 {request, ParamsBin, FinalizerFun},
+                                 Timeout) of
                         {'EXIT', Cause} ->
                             {error, Cause};
                         Ret_1 ->

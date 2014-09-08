@@ -18,6 +18,9 @@
 %% specific language governing permissions and limitations
 %% under the License.
 %%
+%% @doc leo_rpc_client_utils is a utility module
+%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_utils]
+%% @end
 %%======================================================================
 -module(leo_rpc_client_utils).
 
@@ -34,8 +37,9 @@
 %% ===================================================================
 %% @doc Retrieve client-worker's id by host and port
 %%
--spec(get_client_worker_id(string()|atom(), pos_integer()) ->
-             atom()).
+-spec(get_client_worker_id(Host, Port) ->
+             atom() when Host::string()|atom(),
+                         Port::pos_integer()).
 get_client_worker_id(Host, Port) when is_atom(Host) ->
     get_client_worker_id(atom_to_list(Host), Port);
 
@@ -46,8 +50,9 @@ get_client_worker_id(Host, Port) ->
 
 %% @doc Generate client-worker-id from host and port
 %%
--spec(create_client_worker_id(string(), pos_integer()) ->
-             string()).
+-spec(create_client_worker_id(Host, Port) ->
+             string() when Host::string(),
+                           Port::pos_integer()).
 create_client_worker_id(Host, Port) ->
     Host1 = case is_atom(Host) of
                 true  -> atom_to_list(Host);
@@ -56,4 +61,3 @@ create_client_worker_id(Host, Port) ->
 
     lists:append([?DEF_CLIENT_POOL_NAME_PREFIX,
                   Host1, "_at_", integer_to_list(Port)]).
-

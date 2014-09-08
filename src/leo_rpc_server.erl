@@ -18,8 +18,9 @@
 %% specific language governing permissions and limitations
 %% under the License.
 %%
-%% ---------------------------------------------------------------------
-%% TCP Server
+%% @doc leo_rpc_server is a rpc-server
+%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_server.erl]
+%% @end
 %%======================================================================
 -module(leo_rpc_server).
 
@@ -31,9 +32,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 
-%% @doc Start tcp-listener(s)
--spec(start_link(atom(), list(), #tcp_server_params{}) ->
-             ok | {error, any()}).
+%% @doc Start tcp-listener of the rpc-server
+-spec(start_link(Module, Args, Option) ->
+             ok | {error, any()} when Module::module(),
+                                      Args::[any()],
+                                      Option::#tcp_server_params{}).
 start_link(Module, Args, #tcp_server_params{port = Port,
                                             listen = ListenerOption} = Option) ->
     case Module:init(Args) of
@@ -52,6 +55,8 @@ start_link(Module, Args, #tcp_server_params{port = Port,
 
 
 %% @doc Stop tcp-listener(s)
+-spec(stop() ->
+             ok).
 stop() ->
     ok.
 

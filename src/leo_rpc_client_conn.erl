@@ -18,6 +18,9 @@
 %% specific language governing permissions and limitations
 %% under the License.
 %%
+%% @doc leo_rpc_client_conn is a rpc-client
+%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_conn]
+%% @end
 %%======================================================================
 -module(leo_rpc_client_conn).
 
@@ -73,6 +76,7 @@ stop(ServerRef) ->
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
+%% @doc gen_server callback - Module:init(Args) -> Result
 init([Host, IP, Port, ReconnectSleepInterval]) ->
     State = #state{host = Host,
                    ip = IP,
@@ -87,6 +91,8 @@ init([Host, IP, Port, ReconnectSleepInterval]) ->
             {stop, {connection_error, Reason}}
     end.
 
+
+%% @doc gen_server callback - Module:handle_call(Request, From, State) -> Result
 handle_call({request, Req, FinalizerFun}, From, State) ->
     exec(Req, From, State#state{finalizer = FinalizerFun});
 
@@ -105,10 +111,13 @@ handle_call(stop, _From, State) ->
 handle_call(_Request, _From, State) ->
     {reply, unknown_request, State}.
 
+
+%% @doc gen_server callback - Module:handle_cast(Request, State) -> Result
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 
+%% @doc gen_server callback - Module:handle_info(Info, State) -> Result
 handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
     case recv(Socket, <<Buf/binary, Bs/binary>>) of
         {error,_Cause} ->
@@ -166,6 +175,8 @@ handle_info(_Info, State) ->
     terminate(_Info, State),
     {stop, {unhandled_message, _Info}, State}.
 
+
+%% @doc gen_server callback - Module:terminate(Reason, State)
 terminate(_Reason, #state{socket = Socket} = State) ->
     case Socket of
         undefined ->
@@ -177,8 +188,10 @@ terminate(_Reason, #state{socket = Socket} = State) ->
     call_finalizer(State),
     ok.
 
+%% @doc gen_server callback - Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
 
 %% ===================================================================
 %% Inner Functions

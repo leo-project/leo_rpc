@@ -18,6 +18,9 @@
 %% specific language governing permissions and limitations
 %% under the License.
 %%
+%% @doc leo_rpc_client_conn_manager manages rpc-clients
+%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_manager]
+%% @end
 %%======================================================================
 -module(leo_rpc_client_manager).
 
@@ -48,8 +51,8 @@
 %% ===================================================================
 %% APIs
 %% ===================================================================
--spec(start_link(pos_integer()) ->
-             {ok, pid()} | {error, term()}).
+-spec(start_link(Interval) ->
+             {ok, pid()} | {error, term()} when Interval::pos_integer()).
 start_link(Interval) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Interval], []).
 
@@ -58,8 +61,9 @@ stop() ->
 
 
 %% @doc Is already ip/port exists
--spec(is_exists(string(), pos_integer()) ->
-             boolean()).
+-spec(is_exists(IP, Port) ->
+             boolean() when IP::string(),
+                            Port::pos_integer()).
 is_exists(IP, Port) ->
     gen_server:call(?MODULE, {is_exists, IP, Port}).
 
@@ -72,8 +76,8 @@ inspect() ->
 
 
 %% @doc Inspect whether the node is running or not
--spec(inspect(atom()) ->
-             active | inactive).
+-spec(inspect(Node) ->
+             active | inactive when Node::atom()).
 inspect(Node) ->
     gen_server:call(?MODULE, {inspect, Node}).
 
@@ -95,11 +99,13 @@ connected_nodes() ->
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
+%% @doc gen_server callback - Module:init(Args) -> Result
 init([Interval]) ->
     {ok, TRef} = defer_inspect(Interval),
     {ok, #state{interval = Interval, tref = TRef}}.
 
 
+%% @doc gen_server callback - Module:handle_call(Request, From, State) -> Result
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
@@ -144,26 +150,29 @@ handle_call(connected_nodes, _From, #state{active = Active} = State) ->
 handle_call(_Request, _From, State) ->
     {reply, unknown_request, State}.
 
+
+%% @doc gen_server callback - Module:handle_cast(Request, State) -> Result
 handle_cast(inspect, #state{interval = Interval} = State) ->
     {ok, Active, TRef} = inspect_fun(Interval),
     {noreply, State#state{active = Active, tref = TRef}};
-
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 
+%% @doc gen_server callback - Module:handle_info(Info, State) -> Result
 handle_info(stop, State) ->
     {stop, shutdown, State};
-
 handle_info(_Info, State) ->
     {stop, {unhandled_message, _Info}, State}.
 
 
+%% @doc gen_server callback - Module:terminate(Reason, State)
 terminate(_Reason, #state{tref = TRef} = _State) ->
     timer:cancel(TRef),
     ok.
 
 
+%% @doc gen_server callback - Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
