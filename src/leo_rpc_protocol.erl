@@ -93,6 +93,7 @@ init(_) ->
 
 %% @doc Receive data from client(s)
 %%        after that convert from param to binary
+%% <p><pre>
 %% dat-format:
 %% &lt;&lt; "*",
 %%    $ModMethodBin/binary,    "/r/n",
@@ -101,7 +102,8 @@ init(_) ->
 %%    ...
 %%    $Param_N_Bin_Len/binary, "/r/n", "T"|"B", $Param_N_Bin/binary, "/r/n",
 %%    "/r/n" &gt;&gt;
-%%
+%% </pre></p>
+%% @end
 -spec(handle_call(Socket, Data, State) ->
              {reply, binary()} |
              {close, State} when Socket::gen_tcp:socket(),
@@ -188,6 +190,7 @@ handle_call_3(Socket, BodyLen, RPCInfo) ->
 %% API-2
 %% ===================================================================
 %% @doc Convert from param to binary
+%% <p><pre>
 %% Format:
 %% &lt;&lt; "*",
 %%    $ModMethodBin/binary,    "/r/n",
@@ -196,7 +199,8 @@ handle_call_3(Socket, BodyLen, RPCInfo) ->
 %%    ...
 %%    $Param_N_Bin_Len/binary, "/r/n", "T"|"B", $Param_N_Bin/binary, "/r/n",
 %%    "/r/n" &gt;&gt;
-%%
+%% </pre></p>
+%% @end
 -spec(param_to_binary(Mod, Method, Args) ->
              binary() when Mod::module(),
                            Method::atom(),
@@ -256,6 +260,7 @@ binary_to_param(_InvalidBlock,_) ->
 
 
 %% @doc Convert from result-value to binary
+%% <p><pre>
 %% Format:
 %% &lt;&lt; "*",
 %%    $OriginalDataTypeBin/binary, ResultBodyLen/integer, "/r/n",
@@ -266,7 +271,8 @@ binary_to_param(_InvalidBlock,_) ->
 %%    $BodyBin_N/binary,           "/r/n",
 %%    "/r/n"
 %%    &gt;&gt;
-%%
+%% </pre></p>
+%% @end
 -spec(result_to_binary(Term) ->
              binary() when Term::any()).
 result_to_binary(Term) when is_tuple(Term) ->
@@ -291,6 +297,7 @@ result_to_binary(Term) ->
        Body/binary, ?CRLF/binary >>.
 
 
+%% @private
 result_to_binary_1(0,_Term, Acc) ->
     {ok, Acc};
 result_to_binary_1(Index, Term, Acc) ->
@@ -310,4 +317,3 @@ result_to_binary_1(Index, Term, Acc) ->
                       Bin2/binary,                  ?CRLF/binary >>
            end,
     result_to_binary_1(Index-1, Term, Bin1).
-

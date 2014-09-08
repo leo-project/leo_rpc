@@ -47,6 +47,7 @@
 
 -define(DEF_TIMEOUT, 5000).
 
+
 %%--------------------------------------------------------------------
 %%  APIs
 %%--------------------------------------------------------------------
@@ -82,6 +83,9 @@ async_call(Node, Mod, Method, Args) ->
 call(Node, Mod, Method, Args) ->
     call(Node, Mod, Method, Args, ?DEF_TIMEOUT).
 
+
+%% @doc Evaluates apply(Module, Function, Args) on the node Node
+%%      and returns the corresponding value Res, or {badrpc, Reason} if the call fails.
 -spec(call(Node, Mod, Method, Args, Timeout) ->
              Ret |
              {badrpc, any()} when Node :: atom(),
@@ -100,6 +104,9 @@ call(Node, Mod, Method, Args, Timeout) ->
             {badrpc, Cause}
     end.
 
+
+%% @doc Evaluates apply(Module, Function, Args) on the node Node
+%%      and returns the corresponding value Res, or {badrpc, Reason} if the call fails.
 -spec(call(From, Node, Mod, Method, Args, Timeout) ->
              Ret |
              {badrpc, any()} when From :: pid(),
@@ -126,6 +133,9 @@ call(From, Node, Mod, Method, Args, Timeout) ->
 multicall(Nodes, Mod, Method, Args) ->
     multicall(Nodes, Mod, Method, Args, ?DEF_TIMEOUT).
 
+
+%% @doc A multicall is an RPC which is sent concurrently from one client to multiple servers.
+%%      This is useful for collecting some information from a set of nodes.
 -spec(multicall(Nodes, Mod, Method, Args, Timeout) ->
              Ret |
              {badrpc, any()} when Nodes   :: [atom()],
@@ -146,6 +156,8 @@ multicall(Nodes, Mod, Method, Args, Timeout) ->
             timeout
     end.
 
+
+%% @private
 -spec(multicall_1(Nodes, Pid, Mod, Method, Args, Timeout) ->
              ok when Nodes   :: [atom()],
                      Pid     :: pid(),
@@ -169,6 +181,10 @@ multicall_1([Node|Rest], Pid, Mod, Method, Args, Timeout) ->
 nb_yield(Key) ->
     nb_yield(Key, ?DEF_TIMEOUT).
 
+
+%% @doc This is able to call non-blocking.
+%%      It returns the tuple {value, Val} when the computation has finished,
+%%      or timeout when Timeout milliseconds has elapsed.
 -spec(nb_yield(Key, Timeout) ->
              {value, any()} |
              timeout when Key :: pid(),

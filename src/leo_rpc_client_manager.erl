@@ -51,11 +51,16 @@
 %% ===================================================================
 %% APIs
 %% ===================================================================
+%% @doc Start the server
 -spec(start_link(Interval) ->
              {ok, pid()} | {error, term()} when Interval::pos_integer()).
 start_link(Interval) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Interval], []).
 
+
+%% @doc Stop the server
+-spec(stop() ->
+             ok).
 stop() ->
     gen_server:call(?MODULE, stop).
 

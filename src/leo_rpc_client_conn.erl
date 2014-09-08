@@ -62,11 +62,15 @@
 %% ===================================================================
 %% APIs
 %% ===================================================================
+%% @doc Start the server
+%%
 -spec(start_link(list(any())) ->
              {ok, pid()} | {error, term()}).
 start_link([Host, IP, Port, ReconnectSleepInterval]) ->
     gen_server:start_link(?MODULE, [Host, IP, Port, ReconnectSleepInterval], []).
 
+
+%% @doc Stop the server
 -spec(stop(pid()) ->
              ok | {error, any()}).
 stop(ServerRef) ->
