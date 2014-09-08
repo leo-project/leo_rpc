@@ -87,7 +87,7 @@ status() ->
 
 %% @doc Retrieve connected nodes
 -spec(connected_nodes() ->
-             {ok, [tuple()]}).
+             {ok, [atom()]}).
 connected_nodes() ->
     gen_server:call(?MODULE, connected_nodes).
 

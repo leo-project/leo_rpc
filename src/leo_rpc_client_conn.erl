@@ -184,7 +184,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Inner Functions
 %% ===================================================================
 %% @doc: Send the given request to the rpc-server
-%% @ptivate
+%% @private
 -spec(exec(iolist(), {pid(), _}, #state{}) ->
              {noreply, #state{}} | {reply, Reply::any(), #state{}}).
 exec(Req, From, #state{socket = undefined} = State) ->
@@ -272,16 +272,16 @@ reconnect_loop(Client, #state{reconnect_sleep = ReconnectSleepInterval} = State)
 
 
 %% @doc Convert from result-value to binary
-%% data-format:
-%% << "*",
-%%    $OriginalDataTypeBin/binary, ResultBodyLen/integer, "/r/n",
-%%    $BodyBin_1_Len/integer,      "/r/n",
-%%    $BodyBin_1/binary,           "/r/n",
-%%    ...
-%%    $BodyBin_N_Len/integer,      "/r/n",
-%%    $BodyBin_N/binary,           "/r/n",
-%%    "/r/n"
-%%    >>
+%%      data-format:
+%%      &lt;&lt; "*",
+%%         $OriginalDataTypeBin/binary, ResultBodyLen/integer, "/r/n",
+%%         $BodyBin_1_Len/integer,      "/r/n",
+%%         $BodyBin_1/binary,           "/r/n",
+%%         ...
+%%         $BodyBin_N_Len/integer,      "/r/n",
+%%         $BodyBin_N/binary,           "/r/n",
+%%         "/r/n"
+%%      &gt;&gt;
 %%
 -spec(recv(port(), binary()) ->
              {value, any(), binary()} | {error, any()}).
