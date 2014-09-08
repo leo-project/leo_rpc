@@ -79,13 +79,13 @@ init(_) ->
 %% @doc Receive data from client(s)
 %%        after that convert from param to binary
 %% dat-format:
-%% << "*",
+%% &lt;&lt; "*",
 %%    $ModMethodBin/binary,    "/r/n",
 %%    $ParamsLenBin:8/integer, $BodyLen:32/integer, "/r/n",
 %%    $Param_1_Bin_Len/binary, "/r/n", "T"|"B", $Param_1_Bin/binary, "/r/n",
 %%    ...
 %%    $Param_N_Bin_Len/binary, "/r/n", "T"|"B", $Param_N_Bin/binary, "/r/n",
-%%    "/r/n" >>
+%%    "/r/n" &gt;&gt;
 %%
 handle_call(Socket, Data, State) ->
     case Data of
@@ -169,13 +169,13 @@ handle_call_3(Socket, BodyLen, RPCInfo) ->
 %% ===================================================================
 %% @doc Convert from param to binary
 %% Format:
-%% << "*",
+%% &lt;&lt; "*",
 %%    $ModMethodBin/binary,    "/r/n",
 %%    $ParamsLenBin:8/integer, $BodyLen:32/integer, "/r/n",
 %%    $Param_1_Bin_Len/binary, "/r/n", "T"|"B", $Param_1_Bin/binary, "/r/n",
 %%    ...
 %%    $Param_N_Bin_Len/binary, "/r/n", "T"|"B", $Param_N_Bin/binary, "/r/n",
-%%    "/r/n" >>
+%%    "/r/n" &gt;&gt;
 %%
 -spec(param_to_binary(atom(), atom(), list()) ->
              binary()).
@@ -234,7 +234,7 @@ binary_to_param(_InvalidBlock,_) ->
 
 %% @doc Convert from result-value to binary
 %% Format:
-%% << "*",
+%% &lt;&lt; "*",
 %%    $OriginalDataTypeBin/binary, ResultBodyLen/integer, "/r/n",
 %%    $BodyBin_1_Len/integer,      "/r/n",
 %%    $BodyBin_1/binary,           "/r/n",
@@ -242,7 +242,7 @@ binary_to_param(_InvalidBlock,_) ->
 %%    $BodyBin_N_Len/integer,      "/r/n",
 %%    $BodyBin_N/binary,           "/r/n",
 %%    "/r/n"
-%%    >>
+%%    &gt;&gt;
 %%
 -spec(result_to_binary(any()) ->
              binary()).
