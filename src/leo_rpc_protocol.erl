@@ -18,6 +18,9 @@
 %% specific language governing permissions and limitations
 %% under the License.
 %%
+%% @doc leo_rpc_protocol handles requested data with the protocol
+%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_protocol.erl]
+%% @end
 %%======================================================================
 -module(leo_rpc_protocol).
 
@@ -38,12 +41,18 @@
 %% ===================================================================
 %% API-1
 %% ===================================================================
+%% @doc Start leo_rpc's server
+-spec(start_link() ->
+             ok | {error, any()}).
 start_link() ->
     Params = #tcp_server_params{listen = [binary, {packet, line},
                                           {active, false}, {reuseaddr, true},
                                           {backlog, 1024}, {nodelay, true}]},
     start_link(Params).
 
+%% @doc Start leo_rpc's server
+-spec(start_link(Params) ->
+             ok | {error, any()} when Params::#tcp_server_params{}).
 start_link(Params) ->
     NumOfAcceptors =
         case application:get_env('leo_rpc', 'num_of_acceptors') of
@@ -65,6 +74,9 @@ start_link(Params) ->
                                                        port = ListenPort,
                                                        recv_timeout = ListenTimeout}).
 
+%% @doc Stop leo_rpc's server
+-spec(stop() ->
+             ok | {error, any()}).
 stop() ->
     leo_rpc_server:stop().
 
@@ -72,21 +84,31 @@ stop() ->
 %%----------------------------------------------------------------------
 %% Callback function(s)
 %%----------------------------------------------------------------------
+%% @doc Initialize the protocol
+-spec(init(_) ->
+             {ok, null}).
 init(_) ->
     {ok, null}.
 
 
 %% @doc Receive data from client(s)
 %%        after that convert from param to binary
+%% <p><pre>
 %% dat-format:
-%% << "*",
+%% &lt;&lt; "*",
 %%    $ModMethodBin/binary,    "/r/n",
 %%    $ParamsLenBin:8/integer, $BodyLen:32/integer, "/r/n",
 %%    $Param_1_Bin_Len/binary, "/r/n", "T"|"B", $Param_1_Bin/binary, "/r/n",
 %%    ...
 %%    $Param_N_Bin_Len/binary, "/r/n", "T"|"B", $Param_N_Bin/binary, "/r/n",
-%%    "/r/n" >>
-%%
+%%    "/r/n" &gt;&gt;
+%% </pre></p>
+%% @end
+-spec(handle_call(Socket, Data, State) ->
+             {reply, binary()} |
+             {close, State} when Socket::gen_tcp:socket(),
+                                 Data::binary(),
+                                 State::any()).
 handle_call(Socket, Data, State) ->
     case Data of
         << $*, ModMethodLen:?BLEN_MOD_METHOD_LEN/integer, ?CRLF_STR >> ->
@@ -168,17 +190,21 @@ handle_call_3(Socket, BodyLen, RPCInfo) ->
 %% API-2
 %% ===================================================================
 %% @doc Convert from param to binary
+%% <p><pre>
 %% Format:
-%% << "*",
+%% &lt;&lt; "*",
 %%    $ModMethodBin/binary,    "/r/n",
 %%    $ParamsLenBin:8/integer, $BodyLen:32/integer, "/r/n",
 %%    $Param_1_Bin_Len/binary, "/r/n", "T"|"B", $Param_1_Bin/binary, "/r/n",
 %%    ...
 %%    $Param_N_Bin_Len/binary, "/r/n", "T"|"B", $Param_N_Bin/binary, "/r/n",
-%%    "/r/n" >>
-%%
--spec(param_to_binary(atom(), atom(), list()) ->
-             binary()).
+%%    "/r/n" &gt;&gt;
+%% </pre></p>
+%% @end
+-spec(param_to_binary(Mod, Method, Args) ->
+             binary() when Mod::module(),
+                           Method::atom(),
+                           Args::[any()]).
 param_to_binary(Mod, Method, Args) ->
     ModMethodBin = term_to_binary({Mod, Method}),
     ModMethodLen = byte_size(ModMethodBin),
@@ -207,8 +233,9 @@ param_to_binary(Mod, Method, Args) ->
 
 %% @doc Convert from binary to param
 %% @private
--spec(binary_to_param(binary(), list()) ->
-             {ok, list()} | {error, any()}).
+-spec(binary_to_param(Bin, Acc) ->
+             {ok, list()} | {error, any()} when Bin::binary(),
+                                                Acc::[term()]).
 binary_to_param(?CRLF, Acc) ->
     {ok, lists:reverse(Acc)};
 binary_to_param(<< L:?BLEN_PARAM_TERM/integer, ?CRLF_STR, Rest/binary >>, Acc) ->
@@ -233,8 +260,9 @@ binary_to_param(_InvalidBlock,_) ->
 
 
 %% @doc Convert from result-value to binary
+%% <p><pre>
 %% Format:
-%% << "*",
+%% &lt;&lt; "*",
 %%    $OriginalDataTypeBin/binary, ResultBodyLen/integer, "/r/n",
 %%    $BodyBin_1_Len/integer,      "/r/n",
 %%    $BodyBin_1/binary,           "/r/n",
@@ -242,10 +270,11 @@ binary_to_param(_InvalidBlock,_) ->
 %%    $BodyBin_N_Len/integer,      "/r/n",
 %%    $BodyBin_N/binary,           "/r/n",
 %%    "/r/n"
-%%    >>
-%%
--spec(result_to_binary(any()) ->
-             binary()).
+%%    &gt;&gt;
+%% </pre></p>
+%% @end
+-spec(result_to_binary(Term) ->
+             binary() when Term::any()).
 result_to_binary(Term) when is_tuple(Term) ->
     {ok, Body} = result_to_binary_1(tuple_size(Term), Term, <<>>),
     BodyLen = byte_size(Body),
@@ -268,6 +297,7 @@ result_to_binary(Term) ->
        Body/binary, ?CRLF/binary >>.
 
 
+%% @private
 result_to_binary_1(0,_Term, Acc) ->
     {ok, Acc};
 result_to_binary_1(Index, Term, Acc) ->
@@ -287,4 +317,3 @@ result_to_binary_1(Index, Term, Acc) ->
                       Bin2/binary,                  ?CRLF/binary >>
            end,
     result_to_binary_1(Index-1, Term, Bin1).
-

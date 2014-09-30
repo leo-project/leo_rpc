@@ -18,8 +18,9 @@
 %% specific language governing permissions and limitations
 %% under the License.
 %%
-%% ---------------------------------------------------------------------
-%% TCP Server  - Acceptor.
+%% @doc leo_rpc_server_listener is a rpc-server's listener
+%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_server_listener.erl]
+%% @end
 %%======================================================================
 -module(leo_rpc_server_listener).
 
@@ -38,8 +39,13 @@
 %%-----------------------------------------------------------------------
 %% External API
 %%-----------------------------------------------------------------------
--spec(start_link({atom(), atom()}, pid(), atom(), atom(), #tcp_server_params{}) ->
-             {ok, pid()}).
+%% @doc Start a rpc-server's listener
+-spec(start_link(Id, Socket, State, Module, Options) ->
+             {ok, pid()} when Id::{atom(), atom()},
+                              Socket::pid(),
+                              State::atom(),
+                              Module::module(),
+                              Options::#tcp_server_params{}).
 start_link({Locale, Name}, Socket, State, Module, Options) ->
     {ok, Pid} = proc_lib:start_link(
                   ?MODULE, init,
@@ -51,9 +57,17 @@ start_link({Locale, Name}, Socket, State, Module, Options) ->
     end,
     {ok, Pid}.
 
+
 %% ---------------------------------------------------------------------
 %% Callbacks
 %% ---------------------------------------------------------------------
+%% @doc Callback - Initialize the server
+-spec(init(Parent, Socket, State, Module, Options) ->
+             ok when Parent::pid(),
+                     Socket::gen_tcp:socket(),
+                     State::any(),
+                     Module::module(),
+                     Options::#tcp_server_params{}).
 init(Parent, Socket, State, Module, Options) ->
     proc_lib:init_ack(Parent, {ok, self()}),
 
@@ -62,6 +76,13 @@ init(Parent, Socket, State, Module, Options) ->
     accept(Socket, State, Module, Active, Options).
 
 
+%% @doc Callback - Accept the communication
+-spec(accept(ListenSocket, State, Module, Active, Options) ->
+             ok when ListenSocket::gen_tcp:socket(),
+                     State::any(),
+                     Module::module(),
+                     Active::boolean(),
+                     Options::#tcp_server_params{}).
 accept(ListenSocket, State, Module, Active,
        #tcp_server_params{accept_timeout = Timeout,
                           accept_error_sleep_time = SleepTime} = Options) ->
@@ -79,6 +100,7 @@ accept(ListenSocket, State, Module, Active,
     accept(ListenSocket, State, Module, Active, Options).
 
 
+%% @private
 recv(false = Active, Socket, State, Module, Options) ->
     #tcp_server_params{recv_length = Length} = Options,
     case catch gen_tcp:recv(Socket, Length) of
@@ -104,6 +126,8 @@ recv(true = Active, _DummySocket, State, Module, Options) ->
             {error, timeout}
     end.
 
+
+%% @private
 call(Active, Socket, Data, State, Module, Options) ->
     case Module:handle_call(Socket, Data, State) of
         {reply, DataToSend, NewState} ->
