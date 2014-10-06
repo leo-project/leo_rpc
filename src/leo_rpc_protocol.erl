@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% @doc leo_rpc_protocol handles requested data with the protocol
-%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_protocol.erl]
+%% @reference https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_protocol.erl
 %% @end
 %%======================================================================
 -module(leo_rpc_protocol).

@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% @doc leo_rpc_server is a rpc-server
-%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_server.erl]
+%% @reference https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_server.erl
 %% @end
 %%======================================================================
 -module(leo_rpc_server).

@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% @doc leo_rpc_server_listener is a rpc-server's listener
-%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_server_listener.erl]
+%% @reference https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_server_listener.erl
 %% @end
 %%======================================================================
 -module(leo_rpc_server_listener).

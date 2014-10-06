@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% @doc leo_rpc_client_conn is a rpc-client
-%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_conn]
+%% @reference https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_conn
 %% @end
 %%======================================================================
 -module(leo_rpc_client_conn).
