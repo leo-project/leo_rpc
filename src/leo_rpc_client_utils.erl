@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% @doc leo_rpc_client_utils is a utility module
-%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_utils]
+%% @reference https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_utils
 %% @end
 %%======================================================================
 -module(leo_rpc_client_utils).

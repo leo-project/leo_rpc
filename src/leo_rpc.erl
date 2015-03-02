@@ -23,7 +23,7 @@
 %%
 %% @doc leo_rpc is an original RPC library
 %%      whose interface is similar to Erlang's buildin RPC.
-%% @reference [https://github.com/leo-project/leo_rpc/blob/develop/master/leo_rpc.erl]
+%% @reference https://github.com/leo-project/leo_rpc/blob/develop/master/leo_rpc.erl
 %% @end
 %%======================================================================
 -module(leo_rpc).

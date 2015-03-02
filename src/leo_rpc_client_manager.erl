@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% @doc leo_rpc_client_conn_manager manages rpc-clients
-%% @reference [https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_manager]
+%% @reference https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_manager
 %% @end
 %%======================================================================
 -module(leo_rpc_client_manager).
