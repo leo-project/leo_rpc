@@ -251,7 +251,7 @@ handle_response(Data, #state{pid_from = From,
     MaxNumOfReq = ?env_max_req_for_reconnection(),
 
     case (MaxNumOfReq /= infinity andalso
-          NumReq + 1 >= MaxNumOfReq) of
+          MaxNumOfReq =< NumReq + 1) of
         true ->
             case connect(State_1) of
                 {error, _} ->
