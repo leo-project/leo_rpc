@@ -2,7 +2,7 @@
 %%
 %% Leo-RPC
 %%
-%% Copyright (c) 2013-2014 Rakuten, Inc.
+%% Copyright (c) 2013-2015 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -26,48 +26,44 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--define(REMOTE_NODE, erlang:node()).
+-record(state, {
+          remote_node :: atom()
+         }).
 
-new(_Id) ->
-    catch application:start(leo_rpc),
-    Ret1 = net_adm:ping(?REMOTE_NODE),
-    Ret2 = leo_rpc:call(?REMOTE_NODE, 'erlang', 'date', []),
+new(Id) ->
+    case Id of
+        1 ->
+            application:start(leo_rpc);
+        _ ->
+            void
+    end,
+    RemoteNodeIP    = basho_bench_config:get('remote_node_ip', "127.0.0.1"),
+    RemoteNodePort  = basho_bench_config:get('remote_node_port', 13076),
+    RemoteNodeAlias = list_to_atom(lists:append(["remote_1@",
+                                                 RemoteNodeIP,
+                                                 ":",
+                                                 integer_to_list(RemoteNodePort) ])),
+    Ret = leo_rpc:call(RemoteNodeAlias, 'erlang', 'date', []),
+    ?debugVal({RemoteNodeAlias, Ret}),
+    {ok, #state{remote_node = RemoteNodeAlias}}.
 
-    ?debugVal({Ret1, Ret2}),
-    {ok, null}.
 
-
-run(rpc_call,_KeyGen, ValueGen, State) ->
-    case rpc:call(?REMOTE_NODE, 'erlang', 'byte_size', [ValueGen()]) of
+run(leo_rpc_call,_KeyGen, ValueGen, #state{remote_node = RemoteNode} = State) ->
+    case leo_rpc:call(RemoteNode, 'erlang', 'byte_size', [ValueGen()]) of
         {error, Reason} ->
             {error, Reason, State};
+        _Res when is_integer(_Res) ->
+            {ok, State};
         _Res ->
-            {ok, State}
+            ?debugVal(_Res),
+            {error, 'invalid_value', State}
     end;
 
-run(leo_rpc_call,_KeyGen, ValueGen, State) ->
-    case leo_rpc:call(?REMOTE_NODE, 'erlang', 'byte_size', [ValueGen()]) of
-        {error, Reason} ->
-            {error, Reason, State};
-        _Res ->
-            {ok, State}
-    end;
-
-run(rpc_async_call,_KeyGen, ValueGen, State) ->
-    RPCKey = rpc:async_call(?REMOTE_NODE, 'erlang', 'byte_size', [ValueGen()]),
-    case rpc:nb_yield(RPCKey, 5000) of
-        {value, {error, Reason}} ->
-            {error, Reason, State};
-        {value, _Ret} ->
-            {ok, State}
-    end;
-
-run(leo_rpc_async_call,_KeyGen, ValueGen, State) ->
-    RPCKey = leo_rpc:async_call(?REMOTE_NODE, 'erlang', 'byte_size', [ValueGen()]),
+run(leo_rpc_async_call,_KeyGen, ValueGen, #state{remote_node = RemoteNode} = State) ->
+    RPCKey = leo_rpc:async_call(RemoteNode, 'erlang', 'byte_size', [ValueGen()]),
     case leo_rpc:nb_yield(RPCKey, 5000) of
         {value, {error, Reason}} ->
             {error, Reason, State};
         {value, _Ret} ->
             {ok, State}
     end.
-

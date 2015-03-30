@@ -2,7 +2,7 @@
 %%
 %% Leo RPC
 %%
-%% Copyright (c) 2012-2014 Rakuten, Inc.
+%% Copyright (c) 2012-2015 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -136,7 +136,8 @@ handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
         {value, Value, Rest} ->
             %% The receive buf should be empty
             case Rest of
-                <<>> -> void;
+                <<>> ->
+                    void;
                 Garbage ->
                     error_logger:error_msg(
                       "~p,~p,~p,~p~n",
@@ -144,8 +145,9 @@ handle_info({tcp, Socket, Bs}, #state{buf = Buf} = State) ->
                        {line, ?LINE}, {body, {garbage_left_in_buf, Socket, Garbage}}])
             end,
             inet:setopts(Socket, [{active, once}]),
-            NewState = State#state{buf = Rest},
-            {noreply, handle_response(Value, NewState)}
+            NewState_1 = State#state{buf = Rest},
+            NewState_2 = handle_response(Value, NewState_1),
+            {noreply, NewState_2}
     end;
 
 handle_info({tcp_error, Socket, Reason}, #state{pid_from = From} = State) ->
@@ -155,7 +157,9 @@ handle_info({tcp_error, Socket, Reason}, #state{pid_from = From} = State) ->
        {line, ?LINE}, {body, {tcp_error, Socket, Reason}}]),
     reply({error, Reason}, From),
     terminate(tcp_error, State),
-    {noreply, State#state{pid_from = undefined, socket = undefined, nreq = 0}};
+    {noreply, State#state{pid_from = undefined,
+                          socket = undefined,
+                          nreq = 0}};
 
 handle_info({tcp_closed, _Socket}, State) ->
     terminate(tcp_closed, State),
@@ -211,6 +215,7 @@ exec(Req, From, #state{socket = undefined} = State) ->
                 ok ->
                     {noreply, State1#state{pid_from = From}};
                 {error,_Reason} ->
+                    catch gen_tcp:close(Socket),
                     spawn(fun() -> reconnect_loop(self(), State) end),
                     NewState = call_finalizer(State),
                     {noreply, NewState#state{socket = undefined}}
@@ -224,8 +229,11 @@ exec(Req, From, #state{socket = undefined} = State) ->
 exec(Req, From, #state{socket = Socket} = State) ->
     case gen_tcp:send(Socket, Req) of
         ok ->
-            {noreply, State#state{pid_from = From}};
+            %% {noreply, State#state{pid_from = From}};
+            {noreply, State#state{pid_from = From,
+                                  socket = Socket}};
         {error,_Reason} ->
+            catch gen_tcp:close(Socket),
             spawn(fun() -> reconnect_loop(self(), State) end),
             NewState = call_finalizer(State),
             {noreply, NewState#state{socket = undefined}}
@@ -236,11 +244,30 @@ exec(Req, From, #state{socket = Socket} = State) ->
 -spec(handle_response(_, #state{}) ->
              #state{}).
 handle_response(Data, #state{pid_from = From,
-                             socket = _Socket,
-                             nreq   = NumReq} = State) ->
+                             socket = Socket,
+                             nreq = NumReq} = State) ->
     reply(Data, From),
-    NewState = call_finalizer(State),
-    NewState#state{pid_from = undefined, nreq = NumReq + 1}.
+    State_1 = call_finalizer(State),
+    MaxNumOfReq = ?env_max_req_for_reconnection(),
+
+    case (MaxNumOfReq /= infinity andalso
+          NumReq + 1 >= MaxNumOfReq) of
+        true ->
+            case connect(State_1) of
+                {error, _} ->
+                    State_1#state{pid_from = undefined,
+                                  socket = undefined,
+                                  nreq = 0};
+                {ok, State_3} ->
+                    State_3#state{pid_from = undefined,
+                                  nreq = 0}
+            end;
+        false ->
+            State_1#state{pid_from = undefined,
+                          socket = Socket,
+                          nreq = NumReq + 1}
+    end.
+
 
 %% @doc: Send data to the client
 %% @private
@@ -263,8 +290,17 @@ call_finalizer(#state{finalizer = Finalizer} = State) ->
 
 %% @doc: Connect to server
 %% @private
-connect(State) ->
-    case catch gen_tcp:connect(State#state.ip, State#state.port, ?SOCKET_OPTS) of
+connect(#state{socket = OldSocket} = State) ->
+    case OldSocket of
+        undefined ->
+            void;
+        _ ->
+            catch gen_tcp:close(OldSocket)
+    end,
+
+    case catch gen_tcp:connect(State#state.ip,
+                               State#state.port,
+                               ?SOCKET_OPTS) of
         {ok, Socket} ->
             {ok, State#state{socket = Socket}};
         {error, Reason} ->
