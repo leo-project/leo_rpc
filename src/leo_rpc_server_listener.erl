@@ -102,8 +102,9 @@ accept(ListenSocket, State, Module, Active,
 
 %% @private
 recv(false = Active, Socket, State, Module, Options) ->
-    #tcp_server_params{recv_length = Length} = Options,
-    case catch gen_tcp:recv(Socket, Length) of
+    #tcp_server_params{recv_length  = Length,
+                       recv_timeout = Timeout} = Options,
+    case catch gen_tcp:recv(Socket, Length, Timeout) of
         {ok, Data} ->
             call(Active, Socket, Data, State, Module, Options);
         {'EXIT', Reason} ->
