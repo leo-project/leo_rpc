@@ -50,7 +50,7 @@
 -define(DEF_CLIENT_CONN_POOL_SIZE, 4).
 -define(DEF_CLIENT_CONN_BUF_SIZE,  4).
 -define(DEF_CLIENT_WORKER_SUP_ID, 'leo_rpc_client_worker').
--define(MAX_NUM_OF_REQ, 1024).
+-define(MAX_NUM_OF_REQ, 64).
 
 -record(rpc_info, { module :: atom(),
                     method :: atom(),
