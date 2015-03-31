@@ -34,7 +34,6 @@
          {listen_port,    13075},
          {listen_timeout,  5000},
          {max_requests_for_reconnection, 64},
-         %% {max_requests_for_reconnection, infinity},
          {profile, false}
         ]}
  ]}.
