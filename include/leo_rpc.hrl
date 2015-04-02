@@ -42,7 +42,7 @@
 %% @doc: rpc-server related definitions
 %%
 -define(POOL_NAME, 'leo_tcp_pool').
--define(DEF_ACCEPTORS,      128).
+-define(DEF_ACCEPTORS,      64).
 -define(DEF_LISTEN_IP,      "127.0.0.1").
 -define(DEF_LISTEN_PORT,    13075).
 -define(DEF_LISTEN_TIMEOUT, 5000).
@@ -50,6 +50,7 @@
 -define(DEF_CLIENT_CONN_POOL_SIZE, 4).
 -define(DEF_CLIENT_CONN_BUF_SIZE,  4).
 -define(DEF_CLIENT_WORKER_SUP_ID, 'leo_rpc_client_worker').
+-define(MAX_NUM_OF_REQ, 64).
 
 -record(rpc_info, { module :: atom(),
                     method :: atom(),
@@ -78,7 +79,7 @@
                     {active, false}, {reuseaddr, true},
                     {backlog, 1024}, {nodelay, true}],
           port                    = 13075 :: pos_integer(),
-          num_of_listeners        = 256   :: pos_integer(),
+          num_of_listeners        = 64    :: pos_integer(),
           restart_times           = 3     :: pos_integer(),
           time                    = 60    :: pos_integer(),
           shutdown                = 2000  :: pos_integer(),
@@ -112,4 +113,13 @@
                 _ENV_CON_BUF_SIZE;
             _ ->
                 ?DEF_CLIENT_CONN_BUF_SIZE
+        end).
+
+%% @doc Retrieve maximum number of requests
+-define(env_max_req_for_reconnection(),
+        case application:get_env(leo_rpc, 'max_requests_for_reconnection') of
+            {ok, _ENV_MAX_REQ_FOR_RECON} ->
+                _ENV_MAX_REQ_FOR_RECON;
+            _ ->
+                ?MAX_NUM_OF_REQ
         end).

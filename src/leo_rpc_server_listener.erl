@@ -2,7 +2,7 @@
 %%
 %% Leo RPC
 %%
-%% Copyright (c) 2012-2014 Rakuten, Inc.
+%% Copyright (c) 2012-2015 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -29,8 +29,8 @@
 %% External API
 -export([start_link/5]).
 
-%% Callbacks
--export([init/5, accept/5]).
+%% Internal functions to use in spawn
+-export([init/4, recv/5]).
 
 -include("leo_rpc.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -47,10 +47,9 @@
                               Module::module(),
                               Options::#tcp_server_params{}).
 start_link({Locale, Name}, Socket, State, Module, Options) ->
-    {ok, Pid} = proc_lib:start_link(
+    Pid = erlang:spawn_link(
                   ?MODULE, init,
-                  [self(), Socket, State, Module, Options]),
-
+                  [Socket, State, Module, Options]),
     case Locale of
         local -> register(Name, Pid);
         _ -> global:register_name(Name, Pid)
@@ -62,15 +61,12 @@ start_link({Locale, Name}, Socket, State, Module, Options) ->
 %% Callbacks
 %% ---------------------------------------------------------------------
 %% @doc Callback - Initialize the server
--spec(init(Parent, Socket, State, Module, Options) ->
-             ok when Parent::pid(),
-                     Socket::gen_tcp:socket(),
+-spec(init(Socket, State, Module, Options) ->
+             ok when Socket::gen_tcp:socket(),
                      State::any(),
                      Module::module(),
                      Options::#tcp_server_params{}).
-init(Parent, Socket, State, Module, Options) ->
-    proc_lib:init_ack(Parent, {ok, self()}),
-
+init(Socket, State, Module, Options) ->
     ListenerOptions = Options#tcp_server_params.listen,
     Active = proplists:get_value(active, ListenerOptions),
     accept(Socket, State, Module, Active, Options).
@@ -88,12 +84,8 @@ accept(ListenSocket, State, Module, Active,
                           accept_error_sleep_time = SleepTime} = Options) ->
     case gen_tcp:accept(ListenSocket, Timeout) of
         {ok, Socket} ->
-            case recv(Active, Socket, State, Module, Options) of
-                {error, _Reason} ->
-                    gen_tcp:close(Socket);
-                _ ->
-                    void
-            end;
+            Pid = erlang:spawn(?MODULE, recv, [Active, Socket, State, Module, Options]),
+            gen_tcp:controlling_process(Socket, Pid);
         {error, _Reason} ->
             timer:sleep(SleepTime)
     end,
@@ -102,15 +94,22 @@ accept(ListenSocket, State, Module, Active,
 
 %% @private
 recv(false = Active, Socket, State, Module, Options) ->
-    #tcp_server_params{recv_length = Length} = Options,
-    case catch gen_tcp:recv(Socket, Length) of
+    #tcp_server_params{recv_length  = Length,
+                       recv_timeout = Timeout} = Options,
+    case catch gen_tcp:recv(Socket, Length, Timeout) of
         {ok, Data} ->
             call(Active, Socket, Data, State, Module, Options);
         {'EXIT', Reason} ->
+            catch gen_tcp:close(Socket),
             {error, Reason};
         {error, closed} ->
+            catch gen_tcp:close(Socket),
             {error, connection_closed};
+        {error, not_owner} ->
+            timer:sleep(0),
+            recv(Active, Socket, State, Module, Options);
         {error, Reason} ->
+            catch gen_tcp:close(Socket),
             {error, Reason}
     end;
 
@@ -136,10 +135,14 @@ call(Active, Socket, Data, State, Module, Options) ->
         {noreply, NewState} ->
             recv(Active, Socket, NewState, Module, Options);
         {close, State} ->
+            catch gen_tcp:close(Socket),
             {error, connection_closed};
         {close, DataToSend, State} ->
-            gen_tcp:send(Socket, DataToSend);
+            gen_tcp:send(Socket, DataToSend),
+            catch gen_tcp:close(Socket),
+            {error, connection_closed};
         Other ->
+            catch gen_tcp:close(Socket),
             Other
     end.
 
