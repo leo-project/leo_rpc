@@ -24,7 +24,7 @@ check_plt:
 	dialyzer --check_plt --plt $(PLT_FILE) --apps $(APPS)
 build_plt:
 	@$(REBAR) compile
-	dialyzer --build_plt --output_plt $(PLT_FILE) --apps $(APPS) deps/*/ebin
+	dialyzer --build_plt --output_plt $(PLT_FILE) -Wrace_conditions --apps $(APPS) deps/*/ebin
 dialyzer:
 	@$(REBAR) compile
 	dialyzer --plt $(PLT_FILE) -r ebin/ --dump_callgraph $(DOT_FILE)
