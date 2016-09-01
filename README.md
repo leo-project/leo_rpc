@@ -8,7 +8,7 @@ An original rpc library, interface of which is similar to Erlang's RPC. Aim to c
 
 - Build `leo_rpc`, and set up two environment which are different with `listen_port` configurations
 
-```text
+```bash
 $ git clone https://github.com/leo-project/leo_rpc leo_rpc_0
 $ cd leo_rpc_0
 $ make
@@ -25,7 +25,7 @@ $ vi src/leo_rpc.app.src
 #### Launch two erlang-nodes with `erl`
 - Launch `leo_rpc_0`
 
-```text
+```bash
 ##
 ## Launch "leo_rpc_0"
 ##
@@ -46,7 +46,7 @@ ok
 
 - Launch `leo_rpc_1`
 
-```text
+```bash
 ##
 ## Launch "leo_rpc_1"
 ##
