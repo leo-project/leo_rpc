@@ -1,4 +1,4 @@
-.PHONY: deps test
+.PHONY: all compile xref eunit check_plt dialyzer doc callgraph graphviz clean distclean
 
 
 REBAR := ./rebar
