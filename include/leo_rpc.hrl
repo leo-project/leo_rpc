@@ -42,13 +42,13 @@
 %% @doc: rpc-server related definitions
 %%
 -define(POOL_NAME, 'leo_tcp_pool').
--define(DEF_ACCEPTORS,      64).
--define(DEF_LISTEN_IP,      "127.0.0.1").
--define(DEF_LISTEN_PORT,    13075).
+-define(DEF_ACCEPTORS, 64).
+-define(DEF_LISTEN_IP, "127.0.0.1").
+-define(DEF_LISTEN_PORT, 13075).
 -define(DEF_LISTEN_TIMEOUT, 5000).
 -define(DEF_CLIENT_POOL_NAME_PREFIX, "leo_rpc_client_").
--define(DEF_CLIENT_CONN_POOL_SIZE, 4).
--define(DEF_CLIENT_CONN_BUF_SIZE,  4).
+-define(DEF_CLIENT_CONN_POOL_SIZE, 16).
+-define(DEF_CLIENT_CONN_BUF_SIZE, 16).
 -define(DEF_CLIENT_WORKER_SUP_ID, 'leo_rpc_client_worker').
 -define(MAX_NUM_OF_REQ, 64).
 
@@ -69,24 +69,24 @@
 -record(rpc_conn, { host = [] :: string(),
                     ip :: string(),
                     port = ?DEF_LISTEN_PORT :: pos_integer(),
-                    workers = 0 :: pos_integer(),
+                    workers = 0 :: non_neg_integer(),
                     manager_ref :: atom()
                   }).
 
 -record(tcp_server_params, {
-          prefix_of_name = "leo_rpc_listener_"  :: string(),
+          prefix_of_name = "leo_rpc_listener_" :: string(),
           listen = [binary, {packet, line},
                     {active, false}, {reuseaddr, true},
                     {backlog, 1024}, {nodelay, true}],
-          port                    = 13075 :: pos_integer(),
-          num_of_listeners        = 64    :: pos_integer(),
-          restart_times           = 3     :: pos_integer(),
-          time                    = 60    :: pos_integer(),
-          shutdown                = 2000  :: pos_integer(),
-          accept_timeout          = infinity,
-          accept_error_sleep_time = 3000  :: pos_integer(),
-          recv_length             = 0     :: non_neg_integer(),
-          recv_timeout            = 5000  :: pos_integer()
+          port = 13075 :: pos_integer(),
+          num_of_listeners = 64 :: pos_integer(),
+          restart_times = 3 :: pos_integer(),
+          time = 60 :: pos_integer(),
+          shutdown = 2000 :: pos_integer(),
+          accept_timeout = infinity,
+          accept_error_sleep_time = 3000 :: pos_integer(),
+          recv_length = 0 :: non_neg_integer(),
+          recv_timeout = 5000 :: pos_integer()
          }).
 
 
