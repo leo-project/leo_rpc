@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_rpc_sup).
 
--author('Yosuke Hara').
-
 -behaviour(supervisor).
 
 -include("leo_rpc.hrl").
@@ -36,6 +34,7 @@
 
 %% Helper macro for declaring children of supervisor
 -define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
+
 
 %% ===================================================================
 %% API functions

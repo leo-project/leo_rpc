@@ -24,8 +24,6 @@
 %%======================================================================
 -module(leo_rpc_server).
 
--author('Yosuke Hara').
-
 -export([start_link/3, stop/0]).
 
 -include("leo_rpc.hrl").

@@ -24,8 +24,6 @@
 %%======================================================================
 -module(leo_rpc_client_conn).
 
--author('Yosuke Hara').
-
 -behaviour(gen_server).
 
 -include("leo_rpc.hrl").
@@ -39,14 +37,14 @@
          terminate/2, code_change/3]).
 
 -record(state, {
-          id     :: atom(),
-          host   :: string(),
-          ip     :: pos_integer(),
-          port   :: integer(),
+          id :: atom(),
+          host = [] :: string(),
+          ip = [] :: string(),
+          port = 13075 :: non_neg_integer(),
           socket :: port()|undefined,
-          reconnect_sleep :: integer(),
-          buf    :: binary(),
-          nreq   :: non_neg_integer(),
+          reconnect_sleep = 0 :: non_neg_integer(),
+          buf = <<>> :: binary(),
+          nreq = 0 :: non_neg_integer(),
           pid_from :: {pid(), _}|undefined,
           finalizer :: fun()|undefined
          }).
@@ -58,6 +56,7 @@
                       {reuseaddr, true}]).
 -define(RECV_TIMEOUT, 20000).
 -define(MAX_REQ_PER_CON, 1000000).
+
 
 %% ===================================================================
 %% APIs
@@ -209,6 +208,7 @@ code_change(_OldVsn, State, _Extra) ->
 -spec(exec(iolist(), {pid(), _}, #state{}) ->
              {noreply, #state{}} | {reply, Reply::any(), #state{}}).
 exec(Req, From, #state{socket = undefined} = State) ->
+    %% In case of 'no connection'
     case connect(State) of
         {ok, #state{socket = Socket} = State1} ->
             case gen_tcp:send(Socket, Req) of
@@ -227,6 +227,7 @@ exec(Req, From, #state{socket = undefined} = State) ->
     end;
 
 exec(Req, From, #state{socket = Socket} = State) ->
+    %% Already have a connection
     case gen_tcp:send(Socket, Req) of
         ok ->
             %% {noreply, State#state{pid_from = From}};

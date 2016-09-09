@@ -24,8 +24,6 @@
 %%======================================================================
 -module(leo_rpc_protocol).
 
--author('Yosuke Hara').
-
 -include("leo_rpc.hrl").
 -include_lib("eunit/include/eunit.hrl").
 

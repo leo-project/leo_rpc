@@ -24,8 +24,6 @@
 %%======================================================================
 -module(leo_rpc_client_utils).
 
--author('Yosuke Hara').
-
 -include("leo_rpc.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -55,8 +53,10 @@ get_client_worker_id(Host, Port) ->
                            Port::pos_integer()).
 create_client_worker_id(Host, Port) ->
     Host1 = case is_atom(Host) of
-                true  -> atom_to_list(Host);
-                false -> Host
+                true ->
+                    atom_to_list(Host);
+                false ->
+                    Host
             end,
 
     lists:append([?DEF_CLIENT_POOL_NAME_PREFIX,

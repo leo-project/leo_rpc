@@ -24,8 +24,6 @@
 %%======================================================================
 -module(leo_rpc_server_listener).
 
--author('Yosuke Hara').
-
 %% External API
 -export([start_link/5]).
 

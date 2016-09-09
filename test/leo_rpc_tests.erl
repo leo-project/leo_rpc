@@ -21,8 +21,6 @@
 %%====================================================================
 -module(leo_rpc_tests).
 
--author('Yosuke Hara').
-
 -include("leo_rpc.hrl").
 -include_lib("eunit/include/eunit.hrl").
 

@@ -28,8 +28,6 @@
 %%======================================================================
 -module(leo_rpc).
 
--author('Yosuke Hara').
-
 -include("leo_rpc.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -292,12 +290,14 @@ exec(Node, ParamsBin, Timeout) ->
                               _ ->
                                   {[], 0, 0}
                           end,
+
     case Node1 of
         [] ->
             {error, invalid_node};
         _ ->
-            PodName = leo_rpc_client_utils:get_client_worker_id(Node1, Port1),
-            Ret = case whereis(PodName) of
+            PodId = leo_rpc_client_utils:get_client_worker_id(Node1, Port1),
+            PodId_1 = list_to_atom(lists:append([atom_to_list(PodId), "_1"])),
+            Ret = case whereis(PodId_1) of
                       undefined ->
                           case leo_rpc_client_sup:start_child(Node1, IP1, Port1) of
                               ok ->
@@ -308,23 +308,25 @@ exec(Node, ParamsBin, Timeout) ->
                       _ ->
                           ok
                   end,
+
             %% execute a requested function with a remote-node
-            exec_1(Ret, PodName, ParamsBin, Timeout)
+            exec_1(Ret, PodId, ParamsBin, Timeout)
     end.
 
--spec(exec_1(Ret1,PodName,ParamsBin,Timeout) ->
+-spec(exec_1(Ret1, PodId, ParamsBin, Timeout) ->
              Ret2 when Ret1 :: ok | {ok, any()} | {error, any()},
-                       PodName :: atom(),
+                       PodId :: atom(),
                        ParamsBin :: binary(),
                        Timeout :: pos_integer(),
                        Ret2 :: {ok, any()} | {error, any()}).
-exec_1({error, Cause},_PodName,_ParamsBin,_Timeout) ->
+exec_1({error, Cause},_PodId,_ParamsBin,_Timeout) ->
     {error, Cause};
-exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
-    case catch leo_pod:checkout(PodName) of
-        {ok, ServerRef} ->
+exec_1(ok = Ret, PodId, ParamsBin, Timeout) ->
+    _ = erlang:statistics(wall_clock),
+    case catch leo_pod:checkout(PodId) of
+        {ok, {PodManagerId, ServerRef}} ->
             FinalizerFun = fun() ->
-                                   ok = leo_pod:checkin(PodName, ServerRef)
+                                   ok = leo_pod:checkin(PodManagerId, ServerRef)
                            end,
             Reply = case catch gen_server:call(
                                  ServerRef,
@@ -335,12 +337,16 @@ exec_1(ok = Ret, PodName, ParamsBin, Timeout) ->
                         Ret_1 ->
                             Ret_1
                     end,
+            %% @DEBUG >>
+            {_,_Time} = erlang:statistics(wall_clock),
+            %% <<
+
             Reply;
         {error, ?ERROR_DUPLICATE_DEST} = Error ->
             Error;
-        _ ->
+        _Other ->
             timer:sleep(500),
-            exec_1(Ret, PodName, ParamsBin, Timeout)
+            exec_1(Ret, PodId, ParamsBin, Timeout)
     end.
 
 

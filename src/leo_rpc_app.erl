@@ -20,7 +20,6 @@
 %%
 %%======================================================================
 -module(leo_rpc_app).
--author('Yosuke Hara').
 
 -behaviour(application).
 

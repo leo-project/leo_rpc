@@ -39,6 +39,7 @@
 -define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
 -define(SHUTDOWN_WAITING_TIME, 10000).
 
+
 %% ===================================================================
 %% API functions
 %% ===================================================================
@@ -95,14 +96,14 @@ start_child_1(false, Host, IP, Port, ReconnectSleep) ->
                           supervisor, [leo_pod_sup]},
 
             case supervisor:start_child(?MODULE, ChildSpec) of
-                {ok, _Pid} ->
+                {ok,_Pid} ->
                     ok;
-                {error, {already_started, _Pid}} ->
+                {error, {already_started,_Pid}} ->
                     ok;
                 {error, Cause} ->
                     error_logger:warning_msg(
                       "~p,~p,~p,~p~n",
-                      [{module, ?MODULE_STRING}, {function, "start_child/3"},
+                      [{module, ?MODULE_STRING}, {function, "start_child_1/5"},
                        {line, ?LINE}, {body, Cause}]),
                     {error, Cause}
             end;

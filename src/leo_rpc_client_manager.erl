@@ -18,13 +18,11 @@
 %% specific language governing permissions and limitations
 %% under the License.
 %%
-%% @doc leo_rpc_client_conn_manager manages rpc-clients
+%% @doc leo_rpc_client_manager manages rpc-clients
 %% @reference https://github.com/leo-project/leo_rpc/blob/master/src/leo_rpc_client_manager
 %% @end
 %%======================================================================
 -module(leo_rpc_client_manager).
-
--author('Yosuke Hara').
 
 -behaviour(gen_server).
 
@@ -268,4 +266,3 @@ inspect_fun_3([ServerRef|Rest], Active) ->
         _ ->
             inspect_fun_3(Rest, Active)
     end.
-
