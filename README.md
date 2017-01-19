@@ -1,5 +1,7 @@
 # **leo_rpc**
 
+[![Build Status](https://travis-ci.org/leo-project/leo_rpc.svg?branch=develop)](https://travis-ci.org/leo-project/leo_rpc)
+
 An original rpc library, interface of which is similar to Erlang's RPC. Aim to connect with over 100 nodes.
 
 ## Usage
