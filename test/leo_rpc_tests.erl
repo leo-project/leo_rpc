@@ -107,7 +107,7 @@ receive_large_(Node) ->
     {timeout, 15, begin
                       %% receive a large-object
                       lists:foreach(fun(Size) ->
-                                            Bin = leo_rpc:call(Node, crypto, rand_bytes, [Size]),
+                                            Bin = leo_rpc:call(Node, crypto, strong_rand_bytes, [Size]),
                                             ?assertEqual(Size, byte_size(Bin))
                                     end, [1  * 1024*1024,
                                           2  * 1024*1024,
@@ -132,7 +132,7 @@ receive_large_(Node) ->
 record_(Node) ->
     {timeout, 15, begin
                       F = fun(X) -> X * X end,
-                      Bin = crypto:rand_bytes(10 * 1024*1024),
+                      Bin = crypto:strong_rand_bytes(10 * 1024*1024),
                       T = #test{
                              str = "test",
                              int = 1,
@@ -191,7 +191,7 @@ send_object(Index, Node, Size) ->
         0 -> ?debugVal(Index);
         _ -> void
     end,
-    Bin = crypto:rand_bytes(Size),
+    Bin = crypto:strong_rand_bytes(Size),
     Ret = leo_rpc:call(Node, 'erlang', 'byte_size', [Bin]),
     ?assertEqual(Size, Ret),
 
