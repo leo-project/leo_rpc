@@ -75,9 +75,12 @@
 
 -record(tcp_server_params, {
           prefix_of_name = "leo_rpc_listener_" :: string(),
-          listen = [binary, {packet, line},
-                    {active, false}, {reuseaddr, true},
-                    {backlog, 1024}, {nodelay, true}],
+          listen = [binary,
+                    {packet, line},
+                    {active, false},
+                    {reuseaddr, true},
+                    {backlog, 1024},
+                    {nodelay, true}] :: [any()],
           port = 13075 :: pos_integer(),
           num_of_listeners = 64 :: pos_integer(),
           restart_times = 3 :: pos_integer(),
