@@ -24,7 +24,7 @@
 {application, leo_rpc,
  [
   {description, "leo rpc library"},
-  {vsn, "0.10.19"},
+  {vsn, "0.10.20"},
   {registered, []},
   {applications, [
                   kernel,
