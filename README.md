@@ -9,7 +9,7 @@ An original rpc library, interface of which is similar to Erlang's RPC. Aim to c
 First clone the leo_rpc repository and create a copy of it.
 Then, compile them with different 'listen_port' configurations.
 
-```text
+```bash
 $ git clone https://github.com/leo-project/leo_rpc leo_rpc_0
 $ cp -r leo_rpc_0 leo_rpc_1
 $ cp -r leo_rpc_0 leo_rpc_2
@@ -29,7 +29,7 @@ $ make
 
 Then, start Erlang shells.
 
-```text
+```erlang
 $ cd leo_rpc_1
 $ erl -pa ./ebin/ ./deps/*/ebin -name 'node_1@127.0.0.1'
 Erlang R16B03-1 (erts-5.10.4) [source] [64-bit halfword] [smp:4:4] [async-threads:10] [kernel-poll:false]
@@ -45,7 +45,7 @@ ok
 13076
 ```
 
-```text
+```erlang
 $ cd leo_rpc_2
 $ erl -pa ./ebin/ ./deps/*/ebin -name 'node_2@127.0.0.1'
 Erlang R16B03-1 (erts-5.10.4) [source] [64-bit halfword] [smp:4:4] [async-threads:10] [kernel-poll:false]
@@ -61,7 +61,7 @@ ok
 13077
 ```
 
-```text
+```erlang
 $ cd leo_rpc_0
 $ erl -pa ./ebin/ ./deps/*/ebin -name 'node_0@127.0.0.1'
 Erlang R16B03-1 (erts-5.10.4) [source] [64-bit halfword] [smp:4:4] [async-threads:10] [kernel-poll:false]
@@ -78,7 +78,7 @@ ok
 ```
 Then, we can try various rpc commands as follow.
 
-```erl-sh
+```erlang
 %% Execute rpc-call to a remote-node
 (node_0@127.0.0.1)5> leo_rpc:call('node_1@127.0.0.1:13076', leo_rpc, node, []).
 'node_1@127.0.0.1'
@@ -112,4 +112,5 @@ leo_rpc's license is "Apache License Version 2.0"
 
 ## Sponsors
 
-LeoProject/LeoFS is sponsored by [Rakuten, Inc.](http://global.rakuten.com/corp/) and supported by [Rakuten Institute of Technology](http://rit.rakuten.co.jp/).
+* LeoProject/LeoFS was sponsored by [Rakuten, Inc.](https://global.rakuten.com/corp/) from 2012 to Dec of 2018.
+* LeoProject/LeoFS is sponsored by [Lions Data, Ltd.](https://lions-data.com/) from Jan of 2019.
