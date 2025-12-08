@@ -7,3 +7,4 @@ leo_rpc.dot
 leo_rpc.png
 .rebar/
 doc/
+_build/
