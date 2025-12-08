@@ -282,7 +282,7 @@ exec(Node, ParamsBin, Timeout) when is_atom(Node) ->
 
 exec(Node, ParamsBin, Timeout) ->
     %% find the node from worker-procs
-    {Node1, IP1, Port1} = case string:tokens(Node, "@:") of
+    {Node1, IP1, Port1} = case string:lexemes(Node, "@:") of
                               [_Node, IP, Port] ->
                                   {list_to_atom(_Node), IP, list_to_integer(Port)};
                               [_Node, IP] ->
