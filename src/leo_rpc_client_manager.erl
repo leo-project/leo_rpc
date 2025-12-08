@@ -124,7 +124,7 @@ handle_call({inspect, Node}, _From, State) ->
                 true  -> atom_to_list(Node);
                 false -> Node
             end,
-    [Node2|_] = string:tokens(Node1, "@:"),
+    [Node2|_] = string:lexemes(Node1, "@:"),
     Node3 = list_to_atom(Node2),
 
     {ok, Active, _} = inspect_fun(0, false),
